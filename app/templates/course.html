@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+   <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+
+   <div class="course-page">
+
+      <h2>{{ course.title }}</h2>
+
+      <p><b>Организация:</b> {{ course.organization.name }}</p>
+      <p><b>Кафедра:</b> {{ course.department.name }}</p>
+
+      <p><b>Цена:</b> {{ course.price }}</p>
+      <p><b>Формат:</b> {{ course.format }}</p>
+      <p><b>Длительность:</b> {{ course.duration or course.duration_in_hours }}</p>
+      <p><b>Язык:</b> {{ course.language }}</p>
+      <p><b>Тип:</b> {{ course.course_type }}</p>
+      <p><b>Ссылка:</b> <a href="{{ course.url }}" target="_blank">Перейти к курсу</a></p>
+
+
+      <a href="/">Назад</a>
+
+   </div>
+
+</body>
+
+</html>

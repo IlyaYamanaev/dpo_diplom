@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+   <link rel="stylesheet" href="/static/styles.css">
+   <style>
+      /* Дополнительные стили для категорий */
+      .dpob-filter__content--categories {
+         max-height: 300px;
+         overflow-y: auto;
+      }
+
+      .subcategory-group {
+         margin-left: 20px;
+         padding-left: 10px;
+         border-left: 1px solid #ddd;
+         margin-top: 5px;
+         margin-bottom: 10px;
+      }
+
+      .subcategory-group label {
+         display: block;
+         margin-left: 15px;
+         font-size: 0.9em;
+         color: #666;
+      }
+
+      .category-label {
+         font-weight: bold;
+         margin-top: 8px;
+      }
+
+      .category-label:first-child {
+         margin-top: 0;
+      }
+
+      .dpob-filter__content label {
+         display: block;
+         margin-bottom: 5px;
+         cursor: pointer;
+      }
+   </style>
+</head>
+
+<body>
+
+   <h1>Общий каталог программ ДПО</h1>
+
+   <form class="filters" method="GET">
+      <!-- Существующие фильтры -->
+      <div class="dpob-filter">
+         <div class="dpob-filter__field" onclick="toggleFilter(this)">
+            <span>Организация</span>
+            <span class="icon">+</span>
+         </div>
+         <div class="dpob-filter__content">
+            {% for o in organizations %}
+            <label>
+               <input type="checkbox" name="organization" value="{{o.id}}" {% if o.id|string in
+                  request.args.getlist('organization') %}checked{% endif %}>
+               {{o.name}}
+            </label>
+            {% endfor %}
+         </div>
+      </div>
+
+      <!-- НОВЫЙ ФИЛЬТР: Категории и подкатегории -->
+      <div class="dpob-filter">
+         <div class="dpob-filter__field" onclick="toggleFilter(this)">
+            <span>Категории</span>
+            <span class="icon">+</span>
+         </div>
+         <div class="dpob-filter__content dpob-filter__content--categories">
+            {% for category in categories %}
+            <div class="category-group">
+               <label class="category-label">
+                  <input type="checkbox" name="category" value="{{category.id}}" {% if category.id|string in
+                     request.args.getlist('category') %}checked{% endif %}>
+                  <strong>{{category.name}}</strong>
+                  <span class="count">({{category.course_count}})</span>
+               </label>
+
+               {% if category.subcategories %}
+               <div class="subcategory-group">
+                  {% for subcategory in category.subcategories %}
+                  <label>
+                     <input type="checkbox" name="subcategory" value="{{subcategory.id}}" {% if subcategory.id|string in
+                        request.args.getlist('subcategory') %}checked{% endif %}>
+                      {{subcategory.name}}
+                     <span class="count">({{subcategory.course_count}})</span>
+                  </label>
+                  {% endfor %}
+               </div>
+               {% endif %}
+            </div>
+            {% endfor %}
+         </div>
+      </div>
+
+      <div class="dpob-filter">
+         <div class="dpob-filter__field" onclick="toggleFilter(this)">
+            <span>Формат</span>
+            <span class="icon">+</span>
+         </div>
+         <div class="dpob-filter__content">
+            {% for f in formats %}
+            <label>
+               <input type="checkbox" name="format" value="{{f[0]}}" {% if f[0] in request.args.getlist('format')
+                  %}checked{% endif %}>
+               {{f[0]}}
+            </label>
+            {% endfor %}
+         </div>
+      </div>
+
+      <div class="dpob-filter">
+         <div class="dpob-filter__field" onclick="toggleFilter(this)">
+            <span>Язык</span>
+            <span class="icon">+</span>
+         </div>
+         <div class="dpob-filter__content">
+            {% for f in languages %}
+            <label>
+               <input type="checkbox" name="language" value="{{f[0]}}" {% if f[0] in request.args.getlist('language')
+                  %}checked{% endif %}>
+               {{f[0]}}
+            </label>
+            {% endfor %}
+         </div>
+      </div>
+
+      <div class="dpob-filter">
+         <div class="dpob-filter__field" onclick="toggleFilter(this)">
+            <span>Тип</span>
+            <span class="icon">+</span>
+         </div>
+         <div class="dpob-filter__content">
+            {% for f in types %}
+            <label>
+               <input type="checkbox" name="course_type" value="{{f[0]}}" {% if f[0] in
+                  request.args.getlist('course_type') %}checked{% endif %}>
+               {{f[0]}}
+            </label>
+            {% endfor %}
+         </div>
+      </div>
+
+      <div class="filter-actions">
+         <button type="submit">Применить фильтр</button>
+         <a href="{{ url_for('index') }}" class="reset-btn">Сбросить все</a>
+      </div>
+   </form>
+
+   {% set active_filters = [] %}
+   
+   <!-- Собираем все активные фильтры -->
+   {% for org_id in request.args.getlist('organization') %}
+   {% for o in organizations %}
+   {% if o.id|string == org_id %}
+   {% set _ = active_filters.append({'param': 'organization', 'value': org_id, 'label': o.name, 'type': 'organization'}) %}
+   {% endif %}
+   {% endfor %}
+   {% endfor %}
+   
+   {% for cat_id in request.args.getlist('category') %}
+   {% for category in categories %}
+   {% if category.id|string == cat_id %}
+   {% set _ = active_filters.append({'param': 'category', 'value': cat_id, 'label': category.name, 'type': 'category'}) %}
+   {% endif %}
+   {% endfor %}
+   {% endfor %}
+   
+   {% for sub_id in request.args.getlist('subcategory') %}
+   {% for category in categories %}
+   {% for sub in category.subcategories %}
+   {% if sub.id|string == sub_id %}
+   {% set _ = active_filters.append({'param': 'subcategory', 'value': sub_id, 'label': sub.name, 'type': 'subcategory'}) %}
+   {% endif %}
+   {% endfor %}
+   {% endfor %}
+   {% endfor %}
+   
+   {% for fmt in request.args.getlist('format') %}
+   {% set _ = active_filters.append({'param': 'format', 'value': fmt, 'label': fmt, 'type': 'format'}) %}
+   {% endfor %}
+   
+   {% for lang in request.args.getlist('language') %}
+   {% set _ = active_filters.append({'param': 'language', 'value': lang, 'label': lang, 'type': 'language'}) %}
+   {% endfor %}
+   
+   {% for ctype in request.args.getlist('course_type') %}
+   {% set _ = active_filters.append({'param': 'course_type', 'value': ctype, 'label': ctype, 'type': 'course_type'}) %}
+   {% endfor %}
+   
+   <!-- Отображаем теги -->
+   {% if active_filters %}
+   <div class="dpob-tags">
+      <span class="dpob-tags__title">Выбранные фильтры:</span>
+      <div class="dpob-tags__inner">
+         {% for filter in active_filters %}
+         <a href="{{ url_for('index', **request.args.to_dict()|delete_param(filter.param, filter.value)) }}"
+            class="dpob-tag">
+            <span>{{ filter.label }}</span>
+            <svg class="dpob-tag__close" width="14" height="14" viewBox="0 0 20 20" fill="none">
+               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M6 6L14 14M14 6L6 14" />
+            </svg>
+         </a>
+         {% endfor %}
+         <!-- <a href="{{ url_for('index') }}" class="dpob-tag dpob-tag-clear">Сбросить все ✕</a> -->
+      </div>
+   </div>
+   {% endif %}
+
+   <div class="cards">
+      {% for c in courses %}
+      <div class="card org-{{c.organization_id}}">
+         <!-- Организация -->
+         <div class="org-name">{{ c.organization.name if c.organization else '—' }}</div>
+   
+         <!-- Категории через точку -->
+         <div class="categories-dot">
+            {% if c.categories %}
+            {% for cat in c.categories %}
+            <span class="category-dot">{{ cat.name }}</span>
+            {% if not loop.last %}•{% endif %}
+            {% endfor %}
+            {% else %}
+            <span class="category-dot">Без категории</span>
+            {% endif %}
+         </div>
+   
+         <!-- Название курса (жирный, большой, с переносом) -->
+         <div class="course-title">{{ c.title }}</div>
+   
+         <div class="spacer"></div>
+   
+         <!-- Нижняя часть -->
+         <div class="course-bottom">
+            <div class="bottom-left">
+               <div class="duration-text">{{ c.duration if c.duration else c.duration_in_hours }}</div>
+               <div class="hours-text">
+                  {% if c.duration_in_hours and c.duration_in_hours != 'Не указан' %}
+                     {{ c.duration_in_hours }} ак.ч.
+                  {% else %}
+                     Не указана
+                  {% endif %}
+               </div>
+            </div>
+   
+            <div class="bottom-right">
+               <div class="course-type">{{ c.course_type if c.course_type else 'Курс' }}</div>
+               <div class="price-large">
+                  {% if c.price and c.price != 'None' %}
+                     {{ c.price }} ₽
+                  {% else %}
+                     Отсутствует
+                  {% endif %}
+                  
+               </div>
+            </div>
+         </div>
+   
+         <a class="btn" href="/course/{{c.id}}">Смотреть</a>
+      </div>
+      {% endfor %}
+   </div>
+
+   {% if not courses %}
+   <div class="no-results">
+      <p>По вашему запросу ничего не найдено.</p>
+   </div>
+   {% endif %}
+
+</body>
+
+<script>
+   function toggleFilter(el) {
+      const parent = el.parentElement;
+      parent.classList.toggle('open');
+
+      const icon = el.querySelector('.icon');
+      // icon.textContent = parent.classList.contains('open') ? '-' : '+';
+   }
+
+   // Автоматическое сохранение выбранных фильтров при отправке формы
+   document.addEventListener('DOMContentLoaded', function () {
+      const form = document.querySelector('.filters');
+      if (form) {
+         // Форма уже отправляется через GET, дополнительная логика не требуется
+      }
+   });
+</script>
+
+</html>
