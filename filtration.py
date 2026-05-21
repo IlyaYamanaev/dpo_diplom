@@ -1,4 +1,3 @@
-import pymysql
 from kw import CATEGORIES, SUBCATEGORIES
 from normalization_functions import ( 
    normalize_price_string, 
@@ -339,26 +338,20 @@ if __name__ == "__main__":
    # normalize_all_prices(conn)
    # normalize_all_languagues(conn)
    # normalize_all_course_types(conn)
-   normalize_all_durations(conn)
+   # normalize_all_durations(conn)
 
-   # # Очищаем файлы с неклассифицированными курсами
-   # with open('unclassified_courses.txt', 'w', encoding='utf-8') as f:
-   #    f.write("НЕКЛАССИФИЦИРОВАННЫЕ КУРСЫ\n")
-   #    f.write("=" * 80 + "\n")
+   # Очищаем файлы с неклассифицированными курсами
+   with open('unclassified_courses.txt', 'w', encoding='utf-8') as f:
+      f.write("НЕКЛАССИФИЦИРОВАННЫЕ КУРСЫ\n")
+      f.write("=" * 60 + "\n")
    
-   # # Инициализируем категории и подкатегории в БД
-   # print(" Инициализация категорий и подкатегорий...")
-   # init_categories_and_subcategories(conn)
+   # Инициализируем категории и подкатегории в БД
+   print(" Инициализация категорий и подкатегорий...")
+   init_categories_and_subcategories(conn)
    
-   # # Классифицируем все курсы
-   # print("\n Классификация курсов...")
-   # process_all_courses(conn)
+   # Классифицируем все курсы
+   print("\n Классификация курсов...")
+   process_all_courses(conn)
       
-   # conn.close()
-   # print("\n Работа завершена!")
-   
-   
-   
-   # Для реального применения (раскомментируйте):
-   # conn = get_connection('buff_dpo_db')
-   # conn.close()
+   conn.close()
+   print("\n Работа завершена!")

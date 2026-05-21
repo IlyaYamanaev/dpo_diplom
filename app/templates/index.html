@@ -86,7 +86,7 @@
                   <label>
                      <input type="checkbox" name="subcategory" value="{{subcategory.id}}" {% if subcategory.id|string in
                         request.args.getlist('subcategory') %}checked{% endif %}>
-                      {{subcategory.name}}
+                     {{subcategory.name}}
                      <span class="count">({{subcategory.course_count}})</span>
                   </label>
                   {% endfor %}
@@ -144,7 +144,6 @@
             {% endfor %}
          </div>
       </div>
-
       <div class="filter-actions">
          <button type="submit">Применить фильтр</button>
          <a href="{{ url_for('index') }}" class="reset-btn">Сбросить все</a>
@@ -152,46 +151,53 @@
    </form>
 
    {% set active_filters = [] %}
-   
+
    <!-- Собираем все активные фильтры -->
    {% for org_id in request.args.getlist('organization') %}
-   {% for o in organizations %}
-   {% if o.id|string == org_id %}
-   {% set _ = active_filters.append({'param': 'organization', 'value': org_id, 'label': o.name, 'type': 'organization'}) %}
-   {% endif %}
+      {% for o in organizations %}
+         {% if o.id|string == org_id %}
+            {% set _ = active_filters.append({'param': 'organization', 'value': org_id, 'label': o.name, 'type': 'organization'})%}
+         {% endif %}
+      {% endfor %}
    {% endfor %}
-   {% endfor %}
-   
+
    {% for cat_id in request.args.getlist('category') %}
-   {% for category in categories %}
-   {% if category.id|string == cat_id %}
-   {% set _ = active_filters.append({'param': 'category', 'value': cat_id, 'label': category.name, 'type': 'category'}) %}
-   {% endif %}
+      {% for category in categories %}
+         {% if category.id|string == cat_id %}
+            {% set _ = active_filters.append({'param': 'category', 'value': cat_id, 'label': category.name, 'type': 'category'})%}
+         {% endif %}
+      {% endfor %}
    {% endfor %}
-   {% endfor %}
-   
+
    {% for sub_id in request.args.getlist('subcategory') %}
-   {% for category in categories %}
-   {% for sub in category.subcategories %}
-   {% if sub.id|string == sub_id %}
-   {% set _ = active_filters.append({'param': 'subcategory', 'value': sub_id, 'label': sub.name, 'type': 'subcategory'}) %}
-   {% endif %}
+      {% for category in categories %}
+         {% for sub in category.subcategories %}
+            {% if sub.id|string == sub_id %}
+               {% set _ = active_filters.append({'param': 'subcategory', 'value': sub_id, 'label': sub.name, 'type': 'subcategory'})%}
+            {% endif %}
+         {% endfor %}
+      {% endfor %}
    {% endfor %}
-   {% endfor %}
-   {% endfor %}
-   
+
    {% for fmt in request.args.getlist('format') %}
-   {% set _ = active_filters.append({'param': 'format', 'value': fmt, 'label': fmt, 'type': 'format'}) %}
+      {% set _ = active_filters.append({'param': 'format', 'value': fmt, 'label': fmt, 'type': 'format'}) %}
    {% endfor %}
-   
+
    {% for lang in request.args.getlist('language') %}
-   {% set _ = active_filters.append({'param': 'language', 'value': lang, 'label': lang, 'type': 'language'}) %}
+      {% set _ = active_filters.append({'param': 'language', 'value': lang, 'label': lang, 'type': 'language'}) %}
    {% endfor %}
-   
+
    {% for ctype in request.args.getlist('course_type') %}
-   {% set _ = active_filters.append({'param': 'course_type', 'value': ctype, 'label': ctype, 'type': 'course_type'}) %}
+      {% set _ = active_filters.append({'param': 'course_type', 'value': ctype, 'label': ctype, 'type': 'course_type'}) %}
+   {% endfor %}
+
+   {% for search in request.args.getlist('search') %}
+      {% if search %}
+         {% set _ = active_filters.append({'param': 'search', 'value': search, 'label': 'Поиск: ' ~ search, 'type': 'search'}) %}
+      {% endif %}
    {% endfor %}
    
+
    <!-- Отображаем теги -->
    {% if active_filters %}
    <div class="dpob-tags">
@@ -212,12 +218,32 @@
    </div>
    {% endif %}
 
+   <!-- Поиск по названию курса -->
+   <div class="search-container">
+      <form method="GET" class="search-form" id="searchForm">
+         <div class="search-wrapper">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+               xmlns="http://www.w3.org/2000/svg">
+               <path
+                  d="M15.5 15.5L19 19M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <input type="text" name="search" placeholder="Поиск курса по названию..."
+               value="{{ request.args.get('search', '') }}" class="search-input">
+            {% if request.args.get('search') %}
+            <a href="{{ url_for('index', **request.args.to_dict()|remove_param('search')) }}" class="search-clear">✕</a>
+            {% endif %}
+            <button type="submit" class="search-button">Найти</button>
+         </div>
+      </form>
+   </div>
+
    <div class="cards">
       {% for c in courses %}
       <div class="card org-{{c.organization_id}}">
          <!-- Организация -->
          <div class="org-name">{{ c.organization.name if c.organization else '—' }}</div>
-   
+
          <!-- Категории через точку -->
          <div class="categories-dot">
             {% if c.categories %}
@@ -229,38 +255,38 @@
             <span class="category-dot">Без категории</span>
             {% endif %}
          </div>
-   
+
          <!-- Название курса (жирный, большой, с переносом) -->
          <div class="course-title">{{ c.title }}</div>
-   
+
          <div class="spacer"></div>
-   
+
          <!-- Нижняя часть -->
          <div class="course-bottom">
             <div class="bottom-left">
                <div class="duration-text">{{ c.duration if c.duration else c.duration_in_hours }}</div>
                <div class="hours-text">
                   {% if c.duration_in_hours and c.duration_in_hours != 'Не указан' %}
-                     {{ c.duration_in_hours }} ак.ч.
+                  {{ c.duration_in_hours }} ак.ч.
                   {% else %}
-                     Не указана
+                  Не указана
                   {% endif %}
                </div>
             </div>
-   
+
             <div class="bottom-right">
                <div class="course-type">{{ c.course_type if c.course_type else 'Курс' }}</div>
                <div class="price-large">
                   {% if c.price and c.price != 'None' %}
-                     {{ c.price }} ₽
+                  {{ c.price }} ₽
                   {% else %}
-                     Отсутствует
+                  Отсутствует
                   {% endif %}
-                  
+
                </div>
             </div>
          </div>
-   
+
          <a class="btn" href="/course/{{c.id}}">Смотреть</a>
       </div>
       {% endfor %}
@@ -274,22 +300,6 @@
 
 </body>
 
-<script>
-   function toggleFilter(el) {
-      const parent = el.parentElement;
-      parent.classList.toggle('open');
 
-      const icon = el.querySelector('.icon');
-      // icon.textContent = parent.classList.contains('open') ? '-' : '+';
-   }
-
-   // Автоматическое сохранение выбранных фильтров при отправке формы
-   document.addEventListener('DOMContentLoaded', function () {
-      const form = document.querySelector('.filters');
-      if (form) {
-         // Форма уже отправляется через GET, дополнительная логика не требуется
-      }
-   });
-</script>
 
 </html>

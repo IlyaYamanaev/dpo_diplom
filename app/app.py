@@ -67,9 +67,14 @@ def index():
                   )
                )
          )
+         
+   # Фильтр по названию
+   search_query = request.args.get('search', '')
+   if search_query:
+      query = query.filter(Course.title.ilike(f'%{search_query}%'))
    
    query = query.order_by(func.rand())
-
+   
    courses = query.all()
 
    # Получаем значения для фильтров
@@ -102,6 +107,7 @@ def index():
                for subcat in subcategories_list
          ]
       })
+   
 
    return render_template(
       'index.html',
@@ -125,25 +131,32 @@ def course(id):
 
    return render_template('course.html', course=course)
 
-# Добавьте в ваш файл с приложением Flask
 @app.template_filter('delete_param')
 def delete_param(params, param_name, param_value):
-   """Удаляет конкретное значение параметра из словаря GET-параметров"""
-   new_params = params.copy()
-   if param_name in new_params:
-      values = new_params[param_name]
-      if isinstance(values, list):
-         # Удаляем только конкретное значение
-         new_values = [v for v in values if v != param_value]
-         if new_values:
-            new_params[param_name] = new_values
-         else:
-            del new_params[param_name]
-      else:
-         # Если одно значение и оно совпадает - удаляем параметр
-         if values == param_value:
-            del new_params[param_name]
-   return new_params
+    """Удаляет конкретное значение параметра из словаря GET-параметров"""
+    new_params = params.copy()
+    if param_name in new_params:
+        values = new_params[param_name]
+        if isinstance(values, list):
+            # Удаляем только конкретное значение
+            new_values = [v for v in values if v != param_value]
+            if new_values:
+                new_params[param_name] = new_values
+            else:
+                del new_params[param_name]
+        else:
+            # Если одно значение и оно совпадает - удаляем параметр
+            if values == param_value:
+                del new_params[param_name]
+    return new_params
+
+@app.template_filter('remove_param')
+def remove_param(params, param_name):
+    """Удаляет параметр целиком из словаря GET-параметров"""
+    new_params = params.copy()
+    if param_name in new_params:
+        del new_params[param_name]
+    return new_params
 
 
 if __name__ == '__main__':

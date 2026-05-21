@@ -34,7 +34,6 @@ class Course(db.Model):
    organization = db.relationship('Organization', backref='courses')
    department = db.relationship('Department', backref='courses')
    
-   # ДОБАВЬТЕ ЭТИ ОТНОШЕНИЯ:
    categories = db.relationship('Category', secondary='rel_course_category', viewonly=False)
    subcategories = db.relationship('Subcategory', secondary='rel_course_subcategory', viewonly=False)
 
