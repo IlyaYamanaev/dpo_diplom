@@ -3,6 +3,7 @@ body {
    margin: 6% 10%;
    background-color: #cce4f6;
 }
+
 /* Заголовок */
 h1 {
    margin-bottom: 30px;
@@ -155,7 +156,7 @@ h1 {
 .dpob-filter.open .icon {
    /* color: #8497eb;
    background: #babfc8; */
-   transform: rotate(45deg); 
+   transform: rotate(45deg);
 }
 
 /* Контент */
@@ -166,7 +167,7 @@ h1 {
    left: 0;
    right: 0;
    z-index: 100000;
-   
+
    display: none;
    max-height: 320px;
    padding: 16px;
@@ -240,7 +241,7 @@ h1 {
    font-weight: 700 !important;
    color: #1f2937 !important;
 
-   
+
    /* background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%); */
    border-left: 3px solid #95a2df;
    border-radius: 12px !important;
@@ -273,6 +274,8 @@ h1 {
    background: #eef2ff;
    border-radius: 12px;
 }
+
+
 
 /* Кнопки */
 .filter-actions {
@@ -362,6 +365,96 @@ h1 {
    }
 }
 
+/* Поиск */
+.search-container {
+   margin: 10px 0 20px 0;
+}
+
+.search-form {
+   width: 100%;
+}
+
+.search-wrapper {
+   position: relative;
+   display: flex;
+   align-items: center;
+   background: #f4f4f5;
+   border-radius: 60px;
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+   transition: all 0.3s ease;
+}
+
+.search-wrapper:focus-within {
+   box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+   transform: translateY(-1px);
+}
+
+.search-icon {
+   position: absolute;
+   left: 18px;
+   color: #9ca3af;
+   pointer-events: none;
+}
+
+.search-input {
+   flex: 1;
+   padding: 16px 100px 16px 50px;
+   border: none;
+   background: transparent;
+   font-size: 15px;
+   color: #1f2937;
+   outline: none;
+   border-radius: 60px;
+}
+
+.search-input::placeholder {
+   color: #9ca3af;
+   font-weight: 400;
+}
+
+.search-clear {
+   position: absolute;
+   right: 110px;
+   width: 24px;
+   height: 24px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   border-radius: 50%;
+   background: #f3f4f6;
+   color: #6b7280;
+   text-decoration: none;
+   font-size: 14px;
+   transition: all 0.2s;
+}
+
+.search-clear:hover {
+   background: #e5e7eb;
+   color: #374151;
+}
+
+.search-button {
+   position: absolute;
+   right: 6px;
+   top: 6px;
+   bottom: 6px;
+   background-color: #7399d6;
+   /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
+   color: white;
+   border: none;
+   padding: 0 24px;
+   border-radius: 60px;
+   font-weight: 600;
+   font-size: 14px;
+   cursor: pointer;
+   transition: all 0.2s ease;
+}
+
+.search-button:hover {
+   transform: scale(0.97);
+   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
 /* Карточки */
 .cards {
    display: grid;
@@ -378,7 +471,8 @@ h1 {
    background: white;
    color: #1f2937;
    min-height: 380px;
-   height: 100%; /* Растягивается на всю высоту ячейки grid */
+   height: 100%;
+   /* Растягивается на всю высоту ячейки grid */
    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
    transition: transform 0.2s ease, box-shadow 0.2s ease;
    position: relative;
@@ -455,7 +549,7 @@ h1 {
    overflow-wrap: break-word;
    hyphens: auto;
 
-   /* Ограничение в 5 строк с многоточием */ 
+   /* Ограничение в 5 строк с многоточием */
    display: -webkit-box;
    -webkit-line-clamp: 5;
    line-clamp: 5;
