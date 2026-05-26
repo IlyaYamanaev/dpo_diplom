@@ -144,6 +144,64 @@
             {% endfor %}
          </div>
       </div>
+      
+      <!-- Фильтр по цене -->
+      <div class="dpob-filter">
+         <div class="dpob-filter__field" onclick="toggleFilter(this)">
+            <span>Цена</span>
+            <span class="icon">+</span>
+         </div>
+         <div class="dpob-filter__content">
+            <div class="range-filter">
+               <div class="range-inputs">
+                  <div class="range-input-group">
+                     <label>от</label>
+                     <input type="number" name="price_min" value="{{ current_price_min }}" placeholder="{{ min_price }}"
+                        min="{{ min_price }}" max="{{ max_price }}" step="1000" class="price-min">
+                  </div>
+                  <span class="range-sep"></span>
+                  <div class="range-input-group">
+                     <label>до</label>
+                     <input type="number" name="price_max" value="{{ current_price_max }}" placeholder="{{ max_price }}"
+                        min="{{ min_price }}" max="{{ max_price }}" step="1000" class="price-max">
+                  </div>
+               </div>
+               <div class="range-values">
+                  <span>{{ min_price }} ₽</span>
+                  <span>{{ max_price }} ₽</span>
+               </div>
+            </div>
+         </div>
+      </div>
+      
+      <!-- Фильтр по академическим часам -->
+      <div class="dpob-filter">
+         <div class="dpob-filter__field" onclick="toggleFilter(this)">
+            <span>Академические часы</span>
+            <span class="icon">+</span>
+         </div>
+         <div class="dpob-filter__content">
+            <div class="range-filter">
+               <div class="range-inputs">
+                  <div class="range-input-group">
+                     <label>  от</label>
+                     <input type="number" name="hours_min" value="{{ current_hours_min }}" placeholder="{{ min_hours }}"
+                        min="{{ min_hours }}" max="{{ max_hours }}" step="10" class="hours-min">
+                  </div>
+                  <span class="range-sep"></span>
+                  <div class="range-input-group">
+                     <label>  до</label>
+                     <input type="number" name="hours_max" value="{{ current_hours_max }}" placeholder="{{ max_hours }}"
+                        min="{{ min_hours }}" max="{{ max_hours }}" step="10" class="hours-max">
+                  </div>
+               </div>
+               <div class="range-values">
+                  <span>{{ min_hours }} ч</span>
+                  <span>{{ max_hours }} ч</span>
+               </div>
+            </div>
+         </div>
+      </div>
       <div class="filter-actions">
          <button type="submit">Применить фильтр</button>
          <a href="{{ url_for('index') }}" class="reset-btn">Сбросить все</a>
@@ -196,7 +254,30 @@
          {% set _ = active_filters.append({'param': 'search', 'value': search, 'label': 'Поиск: ' ~ search, 'type': 'search'}) %}
       {% endif %}
    {% endfor %}
-   
+
+      {% for price_min in request.args.getlist('price_min') %}
+      {% if price_min %}
+         {% set _ = active_filters.append({'param': 'price_min', 'value': price_min, 'label': 'Цена от ' ~ price_min ~ ' ₽', 'type': 'price'}) %}
+      {% endif %}
+   {% endfor %}
+
+   {% for price_max in request.args.getlist('price_max') %}
+      {% if price_max %}
+         {% set _ = active_filters.append({'param': 'price_max', 'value': price_max, 'label': 'Цена до ' ~ price_max ~ ' ₽', 'type': 'price'}) %}
+      {% endif %}
+   {% endfor %}
+
+   {% for hours_min in request.args.getlist('hours_min') %}
+      {% if hours_min %}
+         {% set _ = active_filters.append({'param': 'hours_min', 'value': hours_min, 'label': 'Часы от ' ~ hours_min, 'type': 'hours'}) %}
+      {% endif %}
+   {% endfor %}
+
+   {% for hours_max in request.args.getlist('hours_max') %}
+      {% if hours_max %}
+         {% set _ = active_filters.append({'param': 'hours_max', 'value': hours_max, 'label': 'Часы до ' ~ hours_max, 'type': 'hours'}) %}
+      {% endif %}
+   {% endfor %}
 
    <!-- Отображаем теги -->
    {% if active_filters %}
@@ -300,6 +381,22 @@
 
 </body>
 
+<script>
+   function toggleFilter(el) {
+      const parent = el.parentElement;
+      parent.classList.toggle('open');
 
+      const icon = el.querySelector('.icon');
+      // icon.textContent = parent.classList.contains('open') ? '-' : '+';
+   }
+
+   // Автоматическое сохранение выбранных фильтров при отправке формы
+   document.addEventListener('DOMContentLoaded', function () {
+      const form = document.querySelector('.filters');
+      if (form) {
+         // Форма уже отправляется через GET, дополнительная логика не требуется
+      }
+   });
+</script>
 
 </html>

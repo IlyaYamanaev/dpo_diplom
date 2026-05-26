@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload, selectinload
@@ -72,10 +72,39 @@ def index():
    search_query = request.args.get('search', '')
    if search_query:
       query = query.filter(Course.title.ilike(f'%{search_query}%'))
+      
+   # Фильтр по цене
+   price_min = request.args.get('price_min', '')
+   price_max = request.args.get('price_max', '')
+   if price_min and price_min.isdigit():
+        query = query.filter(Course.price.cast(db.Integer) >= int(price_min))
+   if price_max and price_max.isdigit():
+        query = query.filter(Course.price.cast(db.Integer) <= int(price_max))
    
+   # Фильтр по академическим часам
+   hours_min = request.args.get('hours_min', '')
+   hours_max = request.args.get('hours_max', '')
+   if hours_min and hours_min.isdigit():
+        query = query.filter(Course.duration_in_hours.cast(db.Integer) >= int(hours_min))
+   if hours_max and hours_max.isdigit():
+        query = query.filter(Course.duration_in_hours.cast(db.Integer) <= int(hours_max))
+   
+   # Случайный порядок
    query = query.order_by(func.rand())
    
    courses = query.all()
+   
+   # Минимальные и максимальные значения для фильтров
+   min_price = db.session.query(func.min(Course.price.cast(db.Integer))).scalar() or 0
+   max_price = db.session.query(func.max(Course.price.cast(db.Integer))).scalar() or 1000000
+   min_hours = db.session.query(func.min(Course.duration_in_hours.cast(db.Integer))).scalar() or 0
+   max_hours = db.session.query(func.max(Course.duration_in_hours.cast(db.Integer))).scalar() or 1000
+   
+   # Текущие значения фильтров
+   current_price_min = request.args.get('price_min', '')
+   current_price_max = request.args.get('price_max', '')
+   current_hours_min = request.args.get('hours_min', '')
+   current_hours_max = request.args.get('hours_max', '')
 
    # Получаем значения для фильтров
    organizations = Organization.query.all()
@@ -116,7 +145,15 @@ def index():
       formats=formats,
       languages=languages,
       types=types,
-      categories=categories_with_subcats
+      categories=categories_with_subcats,
+      min_price=min_price,
+      max_price=max_price,
+      min_hours=min_hours,
+      max_hours=max_hours,
+      current_price_min=current_price_min,
+      current_price_max=current_price_max,
+      current_hours_min=current_hours_min,
+      current_hours_max=current_hours_max
    )
 
 
