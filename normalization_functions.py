@@ -1,6 +1,6 @@
-from kw import CATEGORIES, SUBCATEGORIES
 import re
-
+import dateparser
+from datetime import datetime, date
 
 # Нормализация названия (текста в принципе)курса 
 def normalize_text(text):
@@ -23,224 +23,388 @@ def normalize_text(text):
    return text    
 
 
-def normalize_price_string(price_str):
-   """Нормализация строки с ценой курса. Убирает символы валюты, пробелы, оставляет только цифры и точку."""
-   if price_str is None:
-      return None
-   # Приводим к строке и удаляем лишние пробелы
-   price_str = str(price_str).strip()
-   # Пустая строка
-   if price_str == '':
-      return None
-   # Бесплатно и подобные - оставляем как есть
-   if price_str.lower() in ['бесплатно']:
-      return "Бесплатно"
-   # Удаляем пробелы
-   price_str = re.sub(r'\s+', '', price_str)
-   # Удаляем символы ₽, р, р., руб, руб.
-   price_str = re.sub(r'[₽р]\.?', '', price_str)
-   price_str = re.sub(r'руб\.?', '', price_str, flags=re.IGNORECASE)
-   # Заменяем запятую на точку
-   price_str = price_str.replace(',', '.')
-   # Оставляем только цифры и точку
-   price_str = re.sub(r'[^\d.]', '', price_str)
-   if price_str == '':
-      return None
-   # Преобразуем в число, отбрасываем копейки
-   try:
-      if '.' in price_str:
-         return str(int(float(price_str)))
-      else:
-         return str(int(price_str))
-   except ValueError:
-      return None
-   
+def normalize_language_string(lang_val):
+   if not lang_val or str(lang_val).strip() == '':
+      return 'русский'
+   s = str(lang_val).lower().strip('"')
+   # Проверяем ключевые слова по порядку
+   if 'рус' in s:
+      return 'русский'
+   if 'анг' in s:
+      return 'английский'
+   if 'франц' in s:
+      return 'французский'
+   if 'кит' in s:
+      return 'китайский'
+   if 'испан' in s:
+      return 'испанский'
+   if 'араб' in s:
+      return 'арабский'
+   return 'русский'
 
-def normalize_format_string(format_str):
-   """Нормализация формата курса (format) на основе ключевых слов и правил."""
-   if format_str is None:
+
+def normalize_price_string(value: str, ) -> int:
+   """Извлекает цену в рублях из строки с различными форматами. Возвращает целое число """
+   MAX_PRICE = 4000000
+   # 1. Приводим к строке и очищаем
+   if value is None:
       return None
-   # Приводим к строке и нормализуем текст
-   format_str = str(format_str).strip()
-   # Пустая строка
-   if format_str == '' or format_str.lower() == 'null':
+   s = str(value).strip()
+   if not s or s.lower() in ('', 'null', 'nan'):
       return None
+   s_lower = s.lower()
+   # 2. Бесплатно
+   if 'бесплат' in s_lower:
+      return 0
+   # 3. Неопределённые фразы (уточнять, по запросу и т.п.)
+   uncertain_pattern = r'(уточ\w+.*телефон|стоимост\w+.*уточ|по\s+запросу|по\s+телефону|уточнять)'
+   if re.search(uncertain_pattern, s_lower, re.I):
+      return None
+   # 4. Ищем все числа (включая десятичные, с пробелами-разделителями тысяч)
+   num_pattern = r'(\d[\d\s]*[\d.,]?\d*)'
+   candidates = []
+   for match in re.finditer(num_pattern, s):
+      num_str = match.group()
+      # Очищаем пробелы внутри числа
+      num_clean = re.sub(r'\s+', '', num_str)
+      # Заменяем запятую как десятичный разделитель на точку
+      if ',' in num_clean and '.' not in num_clean:
+         num_clean = num_clean.replace(',', '.')
+      # Пытаемся преобразовать в float
+      try:
+         val = float(num_clean)
+      except ValueError:
+         continue
+      # Отбрасываем слишком большие
+      if val > MAX_PRICE:
+         continue
+      # Проверяем, есть ли символ валюты рядом
+      start, end = match.span()
+      context_before = s[max(0, start-10):start]
+      context_after = s[end:min(len(s), end+10)]
+      has_currency = bool(re.search(r'[₽руб]', context_before + context_after, re.I))
+      # Сохраняем кандидата (число, позиция, флаг валюты)
+      candidates.append((val, start, has_currency))
+   if not candidates:
+      return None
+   # 5. Сортируем кандидатов: сначала с валютой, потом по позиции
+   candidates.sort(key=lambda x: (not x[2], x[1]))
+   best_val = candidates[0][0]
+   # 6. Преобразуем в целое с округлением
+   price_int = int(round(best_val))
+   # 7. Дополнительная фильтрация мусорных чисел 
+   if price_int < 10 and price_int != 0:
+      return None
+
+   return price_int
    
-   # Применяем normalize_text из вашего кода (предполагается что она импортирована)
-   normalized = normalize_text(format_str).lower()
    
-   # Список ключевых слов для каждого формата 
-   # "не указан" -> None
-   if 'не указан' in normalized:
+def normalize_format_string(value: str) ->str:
+   """
+   Нормализует строку с форматом обучения в одно из значений:
+   """
+   # 1. Приводим к строке и очищаем
+   if value is None:
       return None
-   # "Очный" - проверяем первым, чтобы не перекрылось "онлайн"
-   if 'очный' in normalized or 'очная' in normalized or 'офлайн' in normalized:
+   s = str(value).strip()
+   if not s or s.lower() in ('', 'null', 'nan', 'none'):
+      return None
+
+   s_lower = s.lower()
+
+   # 2. Неопределённые фразы
+   if 'не указан' in s_lower:
+      return None
+
+   # 3. Приоритет: смешанный / гибридный
+   mixed_pattern = r'(смешанн|гибрид|очно-заочн|очн.*дист|очная.*дист)'
+   if re.search(mixed_pattern, s_lower):
+      return "Смешанный"
+
+   # 4. Очный формат
+   online_indicators = ['онла', 'вебинар', 'видеолекц', 'в запи', 'асинхронн', 'синхронн']
+   has_online = any(ind in s_lower for ind in online_indicators)
+
+   if re.search(r'(очн(ый|ая|ое)|офлайн)', s_lower) and not has_online:
       return "Очный"
-   # "Очно-заочная" -> Смешанный
-   if 'очно-заочная' in normalized:
-      return "Смешанный"
-   # "Смешанный", "гибридный", "гибрид" -> Смешанный
-   if any(word in normalized for word in ['смешанный', 'гибридный', 'гибрид']):
-      return "Смешанный"
-   # "онлайн асинхронный" -> Онлайн
-   if 'онлайн асинхронный' in normalized:
+
+   # 5. Онлайн формат
+   # Прямые указания на онлайн
+   if re.search(r'(онлайн|вебинар|видеолекц|видеозап|асинхронн|синхронн|в записи|связь|практика)', s_lower):
       return "Онлайн"
-   # Проверки для "Очно, онлайн" (смешанный формат с живым участием)
-   if any(word in normalized for word in ['вебинар', 'онлай', 'онлайн-занятия', 'мини-группах', 'обратная связь']):
-      # Если есть "вебинар" или "онлайн" - это онлайн-формат
+
+   # Заочная форма – приравниваем к онлайн (дистант)
+   if 'заочн' in s_lower:
       return "Онлайн"
-   # Если есть и "очн" и "дист" одновременно
-   if 'очн' in normalized and 'дист' in normalized:
-      return "Онлайн"
-   # онлайн по ключевым словам
-   online_keywords = [
-      'видеолекц', 'видеоурок', 'видеозаписи', 'разборная сессия',
-      'лонгриды', 'практические задания', 'вебинар в записи',
-      'марафон', 'вебинара в записи', 'онлайн синхронный', 'онлайн асинхронный', 'в записи', 'воркшопы', 'раза в неделю'
-   ]
-   if any(word in normalized for word in online_keywords):
-      return "Онлайн"
-   # Если ничего не подошло и есть слово "онлайн" - тоже Онлайн
-   if 'онлайн' in normalized:
-      return "Онлайн"
-   # Если есть слово "вебинар" (уже проверяли, но на всякий случай)
-   if 'вебинар' in normalized:
-      return "Онлайн"
-   # Если ничего не найдено, возвращаем оригинал (или None)
-   if format_str and len(format_str) > 0:
-      return format_str
+
+   # 6. Если остались какие-то длинные описания с глаголами обучения – вероятно, онлайн
+   # Но чтобы не ошибиться, лучше вернуть None для нераспознанных
+   # Проверяем, нет ли слов, характерных для описания контента, без явного формата
+   # Если есть упоминание занятий, лекций, но нет ключевых слов формата – None
+   content_words = ['лекци', 'практик', 'кейс', 'задани', 'тест', 'тренажёр', 'наставничество']
+   if any(w in s_lower for w in content_words):
+      return None
+
+   # 7. Если ничего не подошло, возвращаем None
    return None
 
 
-def normalize_course_type_string(course_type_str):
-   """Нормализация типа курса (course_type) на основе ключевых слов и правил."""
-   # Обработка NULL и пустых значений
-   if course_type_str is None:
-      return "Не указан"
-   # Приводим к строке и нормализуем текст
-   course_type_str = str(course_type_str).strip()
-   # Пустая строка
-   if course_type_str == '' or course_type_str.lower() == 'null':
-      return "Не указан"
-   # Применяем normalize_text из вашего кода
-   try:
-      from filtration import normalize_text
-      normalized = normalize_text(course_type_str).lower()
-   except ImportError:
-      normalized = course_type_str.lower()
-   # Список правил в порядке приоритета
-   rules = [
-      ('профессия', 'Профессия'),
-      ('бакалавриат', 'Бакалавриат'),
-      ('магистратура', 'Магистратура'),
-      ('specialized master', 'Магистратура'),
-      ('государственное управление', 'Магистратура'),
-      ('курс', 'Курс'),
-      ('повышения квалификации', 'Повышение квалификации'),
-      ('повышение квалификации', 'Повышение квалификации'),
-      ('профессиональной переподготовки', 'Профессиональная переподготовка'),
-      ('профессиональная переподготовка', 'Профессиональная переподготовка'),
-      ('профессиональное обучение', 'Профессиональная переподготовка'),
-      ('профессиональной подготовки', 'Профессиональная переподготовка'),
-      ('образовательная программа', 'Дополнительное образование'),
-      ('общеразвивающая программа', 'Дополнительное образование'),
-      ('специализация', 'Дополнительное образование'),
-      ('дополнительное образование', 'Дополнительное образование'),
-      ('executive master', 'Бизнес-образование'),
-      ('бизнес-образование', 'Бизнес-образование'),
-      ('mba', 'Бизнес-образование'),
-   ]
-   for keyword, result in rules:
-      if keyword in normalized:
-         return result
-   # Если ничего не подошло
-   if course_type_str and len(course_type_str) > 0:
-      return "Не указан"
-   return "Не указан"
+def normalize_course_type_string(value: str) -> str:
+   """
+   Нормализует строку с типом курса в одно из значений
+   """
+   # 1. Приводим к строке и очищаем
+   if value is None:
+      return None
+   s = str(value).strip()
+   if not s or s.lower() in ('', 'null', 'nan', 'none'):
+      return None
 
+   s_lower = s.lower()
+
+   # 2. Мусорные значения (проценты, символы)
+   if re.match(r'^[-+]?\d+%$', s_lower):
+      return None
+
+   # 3. Неопределённые фразы
+   if 'не указан' in s_lower:
+      return None
+
+   # 4. Приоритетные правила (первые сработавшие возвращаются)
+   rules = [
+      (r'(профессиональной? переподготовки?|профессиональное обучение|профессиональная переподготовка|профессия|профессиональной подготовки)', 'Профессиональная переподготовка'),
+      (r'(повышения? квалификации|программа повышения квалификации|повышение квалификации)', 'Повышение квалификации'),
+      (r'(mba|executive master|specialized master|бизнес-образование|doctor)', 'Бизнес-образование'),
+      (r'(магистратура|specialized master|государственное управление)', 'Магистратура'),
+      (r'бакалавриат', 'Бакалавриат'),
+      (r'(дополнительн(?:ое|ая|ые)?\s*(?:образование|общеразвивающ|общеобразовательн)|специализация|курс|общеобразовательная|общеразвивающая|доп\.?\s*образование)', 'Дополнительное образование'),
+   ]
+
+   for pattern, result in rules:
+      if re.search(pattern, s_lower):
+         return result
+
+   return value
+
+
+def normalize_duration_in_hours_string(value: str) -> int:
+   """
+   Извлекает количество часов из строки с различными форматами.
+   Возвращает целое число (часы) или None, если длительность не указана или не может быть однозначно преобразована.
+   """
+   MAX_HOURS = 10_000  # максимальное разумное количество часов (более 10k часов ~ 416 дней)
+
+   # 1. Приводим к строке и очищаем
+   if value is None:
+      return None
+   s = str(value).strip()
+   if not s or s.lower() in ('', 'null', 'nan', 'none'):
+      return None
+
+   s_lower = s.lower()
+
+   # 2. Неопределённые фразы
+   uncertain_pattern = r'(не указан|не указана|не указано|уточн|по запросу|по телефону)'
+   if re.search(uncertain_pattern, s_lower, re.I):
+      return None
+
+   # 3. Если есть указание на недели, дни и т.п. – не можем однозначно перевести в часы
+   vague_units = r'(недел|дней|дня|день|месяц|месяца|год|года)'
+   if re.search(vague_units, s_lower, re.I):
+      return None
+
+   # 4. Ищем все числа (включая десятичные, с пробелами-разделителями)
+   num_pattern = r'(\d[\d\s]*[\d.,]?\d*)'
+   candidates = []
+
+   for match in re.finditer(num_pattern, s):
+      num_str = match.group()
+      num_clean = re.sub(r'\s+', '', num_str)
+      if ',' in num_clean and '.' not in num_clean:
+         num_clean = num_clean.replace(',', '.')
+      try:
+         val = float(num_clean)
+      except ValueError:
+         continue
+
+      # Отбрасываем слишком большие
+      if val > MAX_HOURS:
+         continue
+
+      # Проверяем, есть ли рядом единица измерения (часы, ак.ч., контактные и т.п.)
+      start, end = match.span()
+      context_before = s[max(0, start-15):start]
+      context_after = s[end:min(len(s), end+15)]
+      context = (context_before + context_after).lower()
+      has_hour_unit = bool(re.search(r'(час|ак\.?ч|академич|контактн|ч\.)', context, re.I))
+
+      # Сохраняем кандидата (число, позиция, флаг наличия часовой единицы)
+      candidates.append((val, start, has_hour_unit))
+
+   if not candidates:
+      return None
+
+   # 5. Сортируем: сначала те, у которых есть единица измерения, потом по позиции
+   candidates.sort(key=lambda x: (not x[2], x[1]))
+   best_val = candidates[0][0]
+
+   # 6. Округляем до целых часов
+   hours = int(round(best_val))
+
+   # 7. Отсекаем слишком маленькие значения (менее 1 часа) – обычно это ошибка
+   if hours < 1:
+      return None
+
+   return hours
 
 
 def normalize_duration_string(duration_str):
-   """
-   Нормализует одну запись длительности курса.
-   Оставляет только цифры (число часов).
-   """   
-   # Обработка NULL и пустых значений
    if duration_str is None:
-      return "Не указан"
-   # Приводим к строке и удаляем лишние пробелы
-   duration_str = str(duration_str).strip()
-   # Пустая строка или null
-   if duration_str == '' or duration_str.lower() == 'null':
-      return "Не указан"
-   # "Не указана" и подобные
-   if any(word in duration_str.lower() for word in 
-          ['не указан', 'не указана', 'не указано']):
-      return "Не указан"
-   # Нормализуем текст (убираем лишние пробелы, приводим к нижнему регистру)
-   try:
-      from filtration import normalize_text
-      normalized = normalize_text(duration_str).lower()
-   except ImportError:
-      normalized = duration_str.lower()
-   # Удаляем слова-маркеры
-   words_to_remove = [
-      'часа', 'часов', 'час', 'ак. ч.', 'ак.ч.', 'ак ч', 'акч',
-      'академических', 'академический', 'академических', 'академического',
-      'ак.', 'дней', 'день', 'дня', 'всего', 'около', 'до', 'более'
+      return None
+
+   s = str(duration_str).strip()
+   if not s or s.lower() in ('null', 'nan', 'не указ'):
+      return None
+
+   # 2. Удаляем скобки и всё, что внутри них
+   s = re.sub(r'\s*\([^)]*\)', '', s)
+
+   # 3. Удаляем мусорные слова (учебных, учетных, ак.ч., часов и т.д.)
+   #    Но не трогаем предлоги (от, до) и диапазоны.
+   garbage_words = [
+      r'\b(?:учебных?|учебные|учетные|учетных?|ак\.?\s*ч\.?|академических?\s*часов?|часов?|занятий?|тренинговых?\s*дней?|персональных?\s*практик?)\b',
+      r'\b(?:модуль|программы|набор|интенсив)\b',
    ]
-   for word in words_to_remove:
-      normalized = normalized.replace(word, ' ')
-   # Оставляем только цифры и пробелы
-   normalized = re.sub(r'[^\d\s]', ' ', normalized)
-   # Разбиваем на части и берем первую группу цифр
-   parts = normalized.split()
-   for part in parts:
-      if part.isdigit():
-         return str(int(part))  # убираем ведущие нули
-   # Если ничего не нашли
-   if duration_str and len(duration_str) > 0:
-      return "Не указан"
-   return "Не указан"
+   for gw in garbage_words:
+      s = re.sub(gw, '', s, flags=re.IGNORECASE)
+
+   # 4. Очистка от лишних запятых, дефисов в конце и пробелов
+   s = re.sub(r',\s*$', '', s)
+   s = re.sub(r'\s*[-–—]\s*$', '', s)
+   s = s.strip()
+
+   # 5. Паттерны для поиска ДЛИТЕЛЬНОСТЕЙ (сохраняем регистр, падежи, «от/до», пропись)
+   # Единицы измерения (корни, включая «год» и «месяц»)
+   units = r'(?:месяц[ае]?в?|мес|недел[ьяи]?|нед|день|дня|дней|дн|год[ае]?в?|года|лет)'
+
+   # Прописные числа (1–12)
+   words_num = r'(?:одна|одну|одной|один|две|два|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать)'
+
+   # Цифровые числа (целые, дробные, диапазоны)
+   digits_num = r'\d+(?:[.,]\d+)?(?:[-–—]\d+(?:[.,]\d+)?)?'
+
+   # Префиксы (от, до, более, менее, около, ~) — не захватываем, чтобы они остались
+   prefix = r'(?:от|до|более|менее|около|~)?\s*'
+
+   # Ищем все вхождения (число + единица) в строке последовательно
+   pattern = re.compile(
+      prefix + r'(' + words_num + r'|' + digits_num + r')\s*(?:[-–—]?х?\s*)?' + units,
+      re.IGNORECASE
+   )
+
+   matches = list(pattern.finditer(s))
+   if not matches:
+      return None
+
+   result_parts = []
+   for m in matches:
+      result_parts.append(m.group(0).strip())
+
+   # Склеиваем пробелом (например "1 год 5 месяцев")
+   result = ' '.join(result_parts).strip()
+   return result if result else None
 
 
-def build_search_structure():
+def extract_last4(phone: str) -> str:
    """
-   Строит структуру для быстрого поиска по ключевым словам
-   Возвращает: {
-      "category_name": {
-         "subcategory_name": ["keyword1", "keyword2", ...],
-         ...
-      }
-   }
+   Извлекает последние 4 цифры номера.
+   
+   Игнорирует:
+   - всё после *
+   - (доб.1234)
+   - любые скобки
+   - пробелы, дефисы и т.д.
    """
-   search_structure = {}
-   
-   # Инициализируем структуру категориями из CATEGORIES
-   for category_name in CATEGORIES.keys():
-      search_structure[category_name] = {}
-   
-   # Заполняем подкатегориями из SUBCATEGORIES
-   for subcat_name, subcat_data in SUBCATEGORIES.items():
-      category_name = subcat_data["category"]
-      keywords = subcat_data["keywords"]
-      
-      if category_name not in search_structure:
-         search_structure[category_name] = {}
-      
-      search_structure[category_name][subcat_name] = keywords
-   
-   # Для категорий без подкатегорий добавляем пустой словарь
-   return search_structure
+   if not phone:
+      return ""
+   phone = str(phone)
+   # Удаляем всё после *
+   phone = phone.split("*")[0]
+   # Удаляем (доб.1234) и подобное
+   phone = re.sub(r'\(.*?доб.*?\)', '', phone, flags=re.IGNORECASE)
+   # Оставляем только цифры
+   digits = re.sub(r'\D', '', phone)
+   if len(digits) < 4:
+      return ""
+   return digits[-4:]
 
-def build_category_keywords():
-   """
-   Строит структуру ключевых слов для категорий (без подкатегорий)
-   Возвращает: {"category_name": ["keyword1", "keyword2", ...]}
-   """
-   category_keywords = {}
-   
-   for category_name, keywords in CATEGORIES.items():
-      category_keywords[category_name] = keywords
-   
-   return category_keywords
+
+def has_plus7(phone: str) -> bool:
+   """Проверяет, есть ли +7 в начале номера"""
+   if not phone:
+      return False
+   normalized = re.sub(r'\s+', '', phone)
+   return normalized.startswith("+7")
+
+
+def remove_duplicate_department_phones(conn):
+   """Удаляет дубликаты телефонов в department_phones."""
+
+   try:
+      with conn.cursor() as cursor:
+         cursor.execute("""
+            SELECT id, department_id, phone
+            FROM department_phones
+            ORDER BY department_id, id
+         """)
+
+         rows = cursor.fetchall()
+         print(f"Всего записей: {len(rows)}")
+         grouped = {}
+
+         # Группируем по department_id + last4
+         for row in rows:
+               row_id, department_id, phone = row
+               last4 = extract_last4(phone)
+               
+               if not last4:
+                  continue
+               key = (department_id, last4)
+               if key not in grouped:
+                  grouped[key] = []
+               grouped[key].append({
+                  "id": row_id,
+                  "phone": phone,
+                  "plus7": has_plus7(phone)
+               })
+         to_delete = []
+
+         # Ищем дубликаты
+         for key, items in grouped.items():
+               if len(items) <= 1:
+                  continue
+               # Сначала пытаемся оставить номер с +7
+               plus7_items = [x for x in items if x["plus7"]]
+               if plus7_items:
+                  keep = plus7_items[0]
+               else:
+                  # иначе оставляем первую запись
+                  keep = items[0]
+               # Остальные удаляем
+               for item in items:
+                  if item["id"] != keep["id"]:
+                     to_delete.append(item)
+         deleted = 0
+         # Удаление
+         for item in to_delete:
+            cursor.execute(
+               "DELETE FROM department_phones WHERE id = %s",
+               (item["id"],)
+            )
+            deleted += 1
+         conn.commit()
+         print(f"\nУдалено дублей: {deleted}")
+         
+   except Exception as e:
+      print(f"Ошибка: {e}")
+      conn.rollback()

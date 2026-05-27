@@ -1,357 +1,364 @@
-from kw import CATEGORIES, SUBCATEGORIES
 from normalization_functions import ( 
+   normalize_language_string,
    normalize_price_string, 
    normalize_format_string,
-   normalize_text,
    normalize_course_type_string,
+   normalize_duration_in_hours_string,
    normalize_duration_string,
-   build_search_structure,
-   build_category_keywords
+   remove_duplicate_department_phones,
 )
 
-from db_functions import (
-   get_connection,
-   clear_course_links,
-   get_or_create_category,
-   get_or_create_subcategory,
-   init_categories_and_subcategories,
+from normalization_date import normalize_date_string
+
+from classification_functions import (
+   build_search_structure,
+   build_category_keywords,
+   process_all_courses,
 )
+
+from db_functions import get_connection, init_categories_and_subcategories
 
 
 DB_NAME = "buff_dpo_db"
 
-# Создаём структуры для поиска
-SEARCH_STRUCTURE = build_search_structure()
-CATEGORY_KEYWORDS = build_category_keywords()
 
-
-
-# --------------------------------------------------------------
-#     Функции классификации, фильтрации и нормализации курсов
-# --------------------------------------------------------------
-def classify_course(title):
-   """
-   Классифицирует курс по названию с учётом исключений
-   """
-   title_lower = normalize_text(title)  
-   
-   result_categories = set()
-   result_subcategories = []
-   
-   # Проверяем категории (с учётом исключений)
-   for category_name, category_data in CATEGORIES.items():
-      # Поддержка как старого формата (список), так и нового (словарь)
-      if isinstance(category_data, dict):
-         keywords = category_data.get("keywords", category_data.get("inc", []))
-         exceptions = category_data.get("exceptions", category_data.get("exc", []))
-      else:
-         keywords = category_data  # старый формат - просто список
-         exceptions = []
-      
-      # Проверяем, есть ли исключения в названии
-      has_exception = False
-      for exc in exceptions:
-         if exc.lower() in title_lower:
-            has_exception = True
-            break
-      
-      if has_exception:
-         continue  # пропускаем эту категорию, если есть исключение
-      
-      # Ищем ключевые слова
-      for keyword in keywords:
-         if keyword.lower() in title_lower:
-            result_categories.add(category_name)
-            break
-   
-   # Аналогично для подкатегорий (если нужно добавить исключения)
-   for subcat_name, subcat_data in SUBCATEGORIES.items():
-      category_name = subcat_data["category"]
-      keywords = subcat_data["keywords"]
-      exceptions = subcat_data.get("exceptions", [])
-      
-      # Проверяем исключения
-      has_exception = False
-      for exc in exceptions:
-         if exc.lower() in title_lower:
-            has_exception = True
-            break
-      
-      if has_exception:
-         continue
-      
-      for keyword in keywords:
-         if keyword.lower() in title_lower:
-            result_subcategories.append((category_name, subcat_name))
-            result_categories.add(category_name)
-            break
-   
-   return {
-      "categories": list(result_categories),
-      "subcategories": result_subcategories
-   }
-
-
-def process_all_courses(conn):
-   """Основная функция: читает все курсы из dpo_courses, классифицирует и заполняет связи"""
-   processed_count = 0
-   no_categories_count = 0
-   no_subcategories_count = 0
-   
-   try:
-      with conn.cursor() as cursor:
-         # Получаем все курсы с id и title
-         cursor.execute("SELECT id, title FROM dpo_courses WHERE title IS NOT NULL AND title != ''")
-         courses = cursor.fetchall()
-         
-         print(f" Всего курсов для обработки: {len(courses)}")
-         print("=" * 60)
-         
-         for course_id, title in courses:
-               # print(f"Обработка курса {course_id}: {title[:50]}...")
-               
-            result = classify_course(title)
-            
-            if not result["categories"] and not result["subcategories"]:
-               no_categories_count += 1
-               # Записываем неклассифицированный курс в файл
-               with open('unclassified_courses.txt', 'a', encoding='utf-8') as f:
-                  f.write(f"{course_id}\t{title}\n")
-               continue
-            
-            if not result["subcategories"]:
-               with open('unSUBclassified_courses.txt', 'a', encoding='utf-8') as f:
-                  f.write(f"{course_id}\t{title}\n")
-               no_subcategories_count += 1
-            
-            # Удаляем старые связи
-            clear_course_links(cursor, course_id)
-            
-            # Добавляем связи с категориями
-            for cat_name in result["categories"]:
-               cat_id = get_or_create_category(cursor, cat_name, conn)
-               cursor.execute(
-                  "INSERT IGNORE INTO rel_course_category (course_id, category_id) VALUES (%s, %s)",
-                  (course_id, cat_id)
-               )
-            
-            # Добавляем связи с подкатегориями
-            for cat_name, subcat_name in result["subcategories"]:
-               cat_id = get_or_create_category(cursor, cat_name, conn)
-               subcat_id = get_or_create_subcategory(cursor, subcat_name, cat_id, conn)
-               cursor.execute(
-                  "INSERT IGNORE INTO rel_course_subcategory (course_id, subcategory_id) VALUES (%s, %s)",
-                  (course_id, subcat_id)
-               )
-            
-            processed_count += 1
-            conn.commit()
-         
-         print("=" * 60)
-         print(f" Статистика:")
-         print(f"  - Обработано курсов: {processed_count}")
-         print(f"  - Без категорий и подкатегорий: {no_categories_count}")
-         print(f"  - Только с категориями (без подкатегорий): {no_subcategories_count}")
-         
-   except Exception as e:
-      print(f" Ошибка при обработке: {e}")
-      conn.rollback()
-      raise
-   finally:
-      pass
-   
    
 # --------------------------------------------------------------
 #     Функции нормализации данных
 # --------------------------------------------------------------
-
-def normalize_all_prices(conn):
-   """Нормализует все цены в таблице dpo_courses"""
+ 
+def normalize_column(conn, select_column, update_column, transform_func, table="dpo_courses",):
    try:
       with conn.cursor() as cursor:
-         # Получаем все курсы
-         cursor.execute("SELECT id, price FROM dpo_courses")
+         cursor.execute(f"SELECT id, {select_column} FROM {table}")
          courses = cursor.fetchall()
-         
          updated = 0
          skipped = 0
-         print(f"Всего записей: {len(courses)}")
-         
-         for course_id, price in courses:
-            new_price = normalize_price_string(price)
-            # Если цена изменилась
-            if new_price != price:
+         print(f"\n{select_column}: всего записей {len(courses)}")
+
+         for course_id, old_value in courses:
+            new_value = transform_func(old_value)
+            if new_value != old_value:
                cursor.execute(
-                  "UPDATE dpo_courses SET price = %s WHERE id = %s",
-                  (new_price, course_id)
+                  f"UPDATE {table} SET {update_column} = %s WHERE id = %s",
+                  (new_value, course_id),
                )
                updated += 1
             else:
                skipped += 1
+
          conn.commit()
-         print(f" Обновлено {updated} записей")
-         print(f" Пропущено {skipped} записей")
+         print(f"   Обновлено: {updated}")
+         print(f"   Пропущено: {skipped}")
 
-   except Exception as e:
-      print(f" Ошибка: {e}")
-      conn.rollback()
-
-
-
-def normalize_all_formats(conn):
-   """Нормализует все форматы в таблице dpo_courses"""
-   try:
-      with conn.cursor() as cursor:
-         # Получаем все курсы
-         cursor.execute("SELECT id, format FROM dpo_courses")
-         courses = cursor.fetchall()
-         
-         updated = 0
-         skipped = 0
-         print(f"Всего записей: {len(courses)}")
-
-         for course_id, format_val in courses:
-            new_format = normalize_format_string(format_val)
-            # Если формат изменился
-            if new_format != format_val:
-               cursor.execute(
-                  "UPDATE dpo_courses SET format = %s WHERE id = %s",
-                  (new_format, course_id)
-               )
-               updated += 1
-            else:
-               skipped += 1
-         conn.commit()
-         print(f" Обновлено {updated} записей")
-         print(f" Пропущено {skipped} записей")
-         
-   except Exception as e:
-      print(f" Ошибка: {e}")
-      conn.rollback()
-
-def normalize_all_languagues(conn):
-   """Нормализует все языки в таблице dpo_courses"""
-   try:
-      with conn.cursor() as cursor:
-         # Получаем все курсы
-         cursor.execute("SELECT id, language FROM dpo_courses")
-         courses = cursor.fetchall()
-         
-         updated = 0
-         skipped = 0
-         print(f"Всего записей: {len(courses)}")
-
-         for course_id, lang_val in courses:
-            new_val = lang_val
-            if 'Не указан' in lang_val:
-               new_val = "русский"
-            # Если язык изменился
-            if new_val != lang_val:
-               cursor.execute(
-                  "UPDATE dpo_courses SET language = %s WHERE id = %s",
-                  (new_val, course_id)
-               )
-               updated += 1
-            else:
-               skipped += 1
-         conn.commit()
-         print(f" Обновлено {updated} записей")
-         print(f" Пропущено {skipped} записей")
-         
-   except Exception as e:
-      print(f" Ошибка: {e}")
-      conn.rollback()
-      
-      
-def normalize_all_course_types(conn):
-   """Нормализует все типы курсов в таблице dpo_courses"""
-   try:
-      with conn.cursor() as cursor:
-         # Получаем все курсы
-         cursor.execute("SELECT id, course_type FROM dpo_courses")
-         courses = cursor.fetchall()
-         
-         updated = 0
-         skipped = 0
-         print(f"Всего записей: {len(courses)}")
-         
-         for course_id, course_type_val in courses:
-               new_type = normalize_course_type_string(course_type_val)
-               # Если тип изменился
-               if new_type != course_type_val:
-                  cursor.execute(
-                     "UPDATE dpo_courses SET course_type = %s WHERE id = %s",
-                     (new_type, course_id)
-                  )
-                  updated += 1
-               else:
-                  skipped += 1
-         
-         conn.commit()
-         print(f"  Обновлено {updated} записей")
-         print(f"  Пропущено {skipped} записей")
-         
    except Exception as e:
       print(f"Ошибка: {e}")
       conn.rollback()
 
 
-def normalize_all_durations(conn):
-   """Нормализует все durations_in_hours в таблице dpo_courses"""
-   try:
-      with conn.cursor() as cursor:
-         # Получаем все курсы
-         cursor.execute("SELECT id, duration_in_hours FROM dpo_courses")
-         courses = cursor.fetchall()
-         
-         updated = 0
-         skipped = 0
-         print(f" Всего записей: {len(courses)}")
-         
-         for course_id, duration_val in courses:
-               new_duration = normalize_duration_string(duration_val)
-               # Если значение изменилось
-               if new_duration != duration_val:
-                  cursor.execute(
-                     "UPDATE dpo_courses SET duration_in_hours = %s WHERE id = %s",
-                     (new_duration, course_id)
-                  )
-                  updated += 1
-               else:
-                  skipped += 1
-         
-         conn.commit()
-         print(f"   Обновлено {updated} записей")
-         print(f"   Пропущено {skipped} записей")
-         
-   except Exception as e:
-      print(f"Ошибка: {e}")
-      conn.rollback()
-# --------------------------------------------------------------
-#     Основной блок
-# --------------------------------------------------------------
+
 if __name__ == "__main__":
    conn = get_connection(DB_NAME)
 
    # Нормализация данных
-   # normalize_all_formats(conn)
-   # normalize_all_prices(conn)
-   # normalize_all_languagues(conn)
-   # normalize_all_course_types(conn)
-   # normalize_all_durations(conn)
-
+   # normalize_column(conn, "language", "language", normalize_language_string)                                    # LiKE
+   # normalize_column(conn, "format", "format", normalize_format_string)                                          # LiKE
+   # normalize_column(conn, "price", "price", normalize_price_string)                                             # LIKE
+   # normalize_column(conn, "course_type", "course_type", normalize_course_type_string)                           # LIKE
+   # normalize_column(conn, "duration_in_hours", "duration_in_hours", normalize_duration_in_hours_string)         # LIKe
+   # normalize_column(conn, "duration", "duration", normalize_duration_string)                                    # LIKE
+   # normalize_column(conn, "date", "norm_date", normalize_date_string)                                           # LIKE
+   # remove_duplicate_department_phones(conn)                                                                     # LIKE
+   
+   
    # Очищаем файлы с неклассифицированными курсами
-   with open('unclassified_courses.txt', 'w', encoding='utf-8') as f:
-      f.write("НЕКЛАССИФИЦИРОВАННЫЕ КУРСЫ\n")
-      f.write("=" * 60 + "\n")
+   # with open('unclassified_courses.txt', 'w', encoding='utf-8') as f:
+   #    f.write("КУРСЫ без категорий\n")
+   #    f.write("=" * 60 + "\n")
+   # with open('unSUBclassified_courses.txt', 'w', encoding='utf-8') as f:
+   #    f.write("КУРСЫ без подкатегорий\n")
+   #    f.write("=" * 60 + "\n")
    
-   # Инициализируем категории и подкатегории в БД
-   print(" Инициализация категорий и подкатегорий...")
-   init_categories_and_subcategories(conn)
+   # # Инициализируем категории и подкатегории в БД
+   # print(" Инициализация категорий и подкатегорий...")
+   # init_categories_and_subcategories(conn)
    
-   # Классифицируем все курсы
-   print("\n Классификация курсов...")
-   process_all_courses(conn)
+   # # Классифицируем все курсы
+   # print("\n Классификация курсов...")
+   # process_all_courses(conn)
       
+   # print("\n Работа завершена!")
    conn.close()
-   print("\n Работа завершена!")
+  
+   
+   
+   # ТЕСТ
+   # for val in test_lang:
+   #    normalized = normalize_language_string(val)
+   #    print(f"{val} \n\t-> {normalized}\n")
+      
+      
+   # test_lang = [
+   #    "",
+   #    "NULL",
+   #    None,
+   #    "Не указ",
+   #    "Английский язык",
+   #    "Русский язык",
+   #    "Китайский язык",
+   #    "английский",
+   #    "французский",
+   #    "русский",
+   # ]
+   
+   # test_dur = [
+   #    "13-29 мая 2026",
+   #    "2 месяца",
+   #    "9 месяцев",
+   #    "Три недели",
+   #    "2 недели",
+   #    "2.5 месяца",
+   #    "24 часа",
+   #    "02.06.2026 - 02.08.2026",
+   #    "04.08.26 - 20.10.26",
+   #    "09.06.2026 - 09.08.2026 (68 ак.ч)",
+   #    "1 год",
+   #    "1 год 5 месяцев",
+   #    "1,5 недели",
+   #    "1-2 месяца в зависимости от расписания занятий",
+   #    "1-2 недели в зависимости от расписания",
+   #    "12 месяцев",
+   #    "13-29 мая 2026",
+   #    "13 учетных недель",
+   #    "14.04.2026 – 13.02.2027",
+   #    "2 дня",
+   #    "4 дня (в период с 4 по 12 июля)",
+   #    "5 недель - один модуль. Идет набор на четвертый модуль программы.",
+   #    "6 апреля - 16 октября 2026",
+   #    "7 месяцев (до 15.06.2026)",
+   #    "Не указана",
+   #    "от 2 недель",
+   #    "от 3 до 4 месяцев",
+   #    "от 6 месяцев",
+   #    "от одной недели",
+   #    "до 2-х недель",
+   #    "№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№",
+   #    "месяцев",
+   #    "2 мес, 68 ак.ч",
+   #    "20-32 учебные недели",
+   #    "34 академических часа",
+   #    "31.08.2026 по 29.11.2026 (68 ак.ч.)",
+   #    "36 часов (36 часов контактной работы)",
+   #    "4 дня (в период с 4 по 12 июля)",
+   #    "5 месяцев, 19.09.2026 - 20.02.2027",
+   #    "7-7,5 месяцев",
+   # ]
+   
+   # test_type = [
+   #    "-55%",
+   #    "Executive Master in",
+   #    "Doctor in/of",
+   #    "MBA",
+   #    "Specialized Master",
+   #    "Дополнительная общеобразовательная программа",
+   #    "Дополнительная общеразвивающая образовательная программа",
+   #    "Дополнительное образование для взрослых",
+   #    "Курс",
+   #    "Общеобразовательная",
+   #    "Повышение квалификации",
+   #    "Программа профессиональной подготовки по профессиям рабочих, должностям служащих (проф.обучение)",
+   #    "Программа профессиональной переподготовки",
+   #    "Профессиональная переподготовка",
+   #    "Профессиональное обучение",
+   #    "Профессия",
+   #    "Специализация",
+   #    "Программа повышения квалификации",
+   # ]
+   
+   # test_format = [
+   #    "Вебинары, воркшопы, лекции в записи, задания с проверкой",
+   #    "3 вебинара в записи, практика и разбор кейсов",
+   #    "Анализ кейсов, практика, вебинары, воркшопы, сессии вопросов и ответов с ментором, разбор домашних заданий",
+   #    "Видеолекции",
+   #    "Видеозаписи, практика, тесты, задания с проверкой",
+   #    "Видеолекции, вебинары, воркшопы, практика",
+   #    "Гибрид",
+   #    "Гибридный (обучение проходит очно и параллельно в онлайн)",
+   #    "Заочная",
+   #    "Лекции, вебинары и домашние задания",
+   #    "Марафон в записи",
+   #    "Бесплатно",
+   #    "Лонгриды, видеолекции, тесты и практические задания",
+   #    "Не только теория: вебинары, практические задания, итоговые работы",
+   #    "Обратная связь от экспертов и активное комьюнити",
+   #    "Онлайн",
+   #    "Онлайн асинхронный",
+   #    "Онлайн синхронный",
+   #    "Офлайн",
+   #    "Очная",
+   #    "Очно-заочная",
+   #    "Очная, дистанционная",
+   #    "Очный",
+   #    "Практика 3 раза в неделю и возможность повторить любимые комплексы",
+   #    "Смешанный",
+   #    "Практические кейсы, вебинары, воркшопы и практические задания",
+   #    "онлайн асинхронный",
+   #    "Анализ кейсов, практика, вебинары, воркшопы, сессии вопросов и ответов с ментором, разбор домашних заданий",
+   #    "Бесплатно",
+   #    "Бесплатно",
+   #    "Бесплатно",
+   #    "Бесплатно",
+   #    "Бесплатно",
+   #    "Бесплатно",
+   # ]
+   
+   # test_dates = [
+   #    "13 месяцев",
+   #    "3 месяца",
+   #    "6 недель",
+   #    "1 неделя",
+   #    "2 дня",
+   #    "5 дней",
+   #    "4 недели",
+   #    "2,5 месяца",
+   #    "от 6 недель",
+   #    "от 6 месяцев",
+   #    "Три недели",
+   #    "Интенсив 2 полных дня",
+   #    "8-10 недель",
+   #    "3 месяца / 4 академических часа в неделю",
+   #    "2 мес, 68 ак.ч",
+   #    "Не указана",
+   #    "месяцев",
+   #    "72 ак. ч.",
+   #    "68 академических часов",
+   #    "68 часов",
+   #    "с 17.08.2026 по 27.08.2026",
+   #    "группа 2: 19.05.2026 -29.10.2026, группа 3: 19.10.2026 - 26.02.2027",
+   #    "группа 18: 12.05.2026 - 10.07.2026",
+   #    "31.08.2026 по 29.11.2026 (68 ак.ч.)",
+   #    "31.08.2026 - 18.01.2027",
+   #    "30 июня - 25 сентября 2026",
+   #    "272 часа, в том числе 32 часа контактной работы в онлайн формате",
+   #    "25 - 27 февраля 2026",
+   #    "09.06.2026 - 09.08.2026",
+   #    "03.06.2026 - 03.07.2026"
+   # ]
+   
+   # test_prices = [
+   #    "8000 ₽",
+   #    "5787.36 ₽",
+   #    "92500",
+   #    "Бесплатно",
+   #    "0",
+   #    "46000р.",
+   #    "",
+   #    "23 000 рублей",
+   #    "396 000 рублей за 1 группу",
+   #    "52 часа - 20 000 рублей, 68 часов - 26 200 рублей",
+   #    "Уточняйте по телефону",
+   #    "1 140 000 рублей",
+   #    "уточнять по телефону",
+   #    "21 000 рублей",
+   #    "140 000 рублей за весь период",
+   #    "3333,30 рублей",
+   #    "информацию о стоимости обучения необходимо уточнить созвонившись с нами по телефону",
+   #    "110 000 ₽104 500 ₽",
+   #    "19 200 рублей – европейские языки",
+   #    " 4 824,96 рублей",
+   #    " от 16900 рублей до 110500 рублей",
+   #    " от 16 000 рублей за 1 модуль",
+   #    " о стоимости обучения уточняйте по телефону",
+   #    " на утверждении",
+   #    "NULL",
+   #    "2 500 000 рублей за группу до 20 человек",
+   #    "2№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№",
+   #    "информацию о стоимости обучения необходимо уточнить созвонившись с нами по телефону",
+   #    "уточнять по телефону",
+   #    "По запросу",
+   #    "Уточняйте по телефону",
+   #    "Уточняйте по телефону",
+      
+   # ]
+        
+   # test_hour = [
+   #    "1 330 часов",
+   #    "1 уровень - 201 час",
+   #    "100 академических часов",
+   #    "1000 ак. ч.",
+   #    "1 неделя",
+   #    "102 часа",
+   #    "108 часов",
+   #    "144 академических часа",
+   #    "16 контактных часов работы",
+   #    "18 ак. ч.",
+   #    "1800 часов",
+   #    "20 академических часов",
+   #    "22 контактных часа",
+   #    "2376 часов",
+   #    "502 ак.ч.",
+   #    "Не указана",
+   #    "от 100 до 196 контактных часов",
+   #    "от 132 часов",
+   #    "от 2 до 9 недель",
+   #    "от 68 академических часов",
+   #    "от 88 до 192 часов",
+   #    "часов",
+   #    "34",
+   # ]
+   
+   # test_dates = [
+   #    "01 октября",
+   #    "01.06.2026",
+   #    "01.06.2026, 15.06.2026, 06.07.2026, 03.08.2026, 17.08.2026",
+   #    "02-13 февраля 2026, 16-27 марта 2026, 06-17 апреля 2026, 11-22 мая 2026",
+   #    "06 апреля-30 апреля 2026, понедельник, среда, четверг с 18.30 до 21.40",
+   #    "09 - 21 ноября 2026 (первая неделя - заочно, вторая - очно)",
+   #    "09-19 июня 2026",
+   #    "1 июля 2026 — 28 июня 2027",
+   #    "12 октября 2026 — 10 июня 2027 (среда и пятница с 18:00 до 21:00)",
+   #    "15-19 июня 2026, в дневное время с 10:00 до 18:00",
+   #    "15 — 17 июня 2026 в дневное время",
+   #    "15-20 июня 2026",
+   #    "16 июня — 30 сентября",
+   #    "16 июня 2026 — 20 сентября 2027",
+   #    "19 января-23 января 2026, 23 марта-27 марта 2026, 22 июня-26 июня 2026",
+   #    "19.09.2026",
+   #    "2 июня 2026 — 26 апреля 2027",
+   #    "2 раза в год, май-июнь, сентябрь-октябрь",
+   #    "20-24 апреля 2026, 22-26 июня 2026",
+   #    "6 апреля-10 апреля 2026, 12 октября-16 октября 2026",
+   #    "№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№",
+   #    "Будние дни",
+   #    "В любое время",
+   #    "Ежемесячно",
+   #    "Июнь",
+   #    "Май-июнь, начало — по мере комплектования групп, занятия — по будням 18:00–21:00",
+   #    "МАЙ",
+   #    "Набор в группу - декабрь-январь, начало – февраль, занятия — по будням, 17:00–20:00 (в зависимости от расписания занятий)",
+   #    "Набор в группу с 15 января, занятия март-май один раз в неделю с 18.00 до 20.30",
+   #    "Начало - октябрь 2026, занятия - один раз в неделю по 4 академических часа, по будням, 16:30–21:00 (в зависимости от расписания занятий)",
+   #    "Начало набора - 1 апреля , обучение - начало июня.",
+   #    "Начало - октябрь 2026, занятия - один раз в неделю по 4 академических часа, по будням, 16:30–21:00 (в зависимости от расписания занятий)",
+   #    "Начало обучения - сентябрь 2026",
+   #    "Начало — октябрь, занятия — 4–5 раз в неделю, в будние дни 18:30–21:40, по субботам в дневное время",
+   #    "Начало — по мере комплектования групп, занятия — 2 раза в неделю по 4 академических часа",
+   #    "Ноябрь 2025, три раза в неделю по будним дням с 18:45 до 21:45",
+   #    "Ноябрь, 5-6 раз в неделю с 14.00 до 20.00",
+   #    "Октябрь 2026",
+   #    "№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№",
+   #    "Начните учиться сейчас",
+   #    "Не указана",
+   #    "Новые группы формируются еженедельно",
+   #    "Ноябрь - декабрь 2026 (по мере комплектования группы)",
+   #    "По мере комплектования группы",
+   #    "С 12 мая",
+   #    "С 9 января по 1 декабря 2025ало",
+   #    "январь, февраль, март, апрель, май, июнь 2026",
+   #    "январь - август 2026 (понедельник - пятница)",
+   #    "с 21 января, 1 раз в неделю по вторникам с 18:00",
+   #    "с 08 апреля по 17 июня 2026, понедельник и среда, с 18:30 до 21:40",
+   #    "2025ало",
+   # ]
+   
+   
