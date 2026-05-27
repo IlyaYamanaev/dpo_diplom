@@ -1,7 +1,7 @@
 import time
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, quote
+from urllib.parse import urljoin
 from db_functions import (
    get_connection,
    get_or_create_specialization,
@@ -19,7 +19,7 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3",
 }
-DB_NAME = "dpo_db"
+DB_NAME = "buff_dpo_db"
 ORGANIZATION_ID = 6  # ДВФУ
 DELAY = 0.7  # пауза между запросами (сек)
 
@@ -296,10 +296,11 @@ def parse_course_page(url: str, html: str) -> dict:
 # ---------------------------------------------------------------------------
 # Основная функция
 # ---------------------------------------------------------------------------
-def main():
-   print("=== Парсер ДПО ДВФУ ===\n")
+def main_dvfu(DB_NAME):
+   db_name = DB_NAME
+   print("=== Парсер ДПO ДВФУ ===\n")
    
-   conn = get_connection(DB_NAME)
+   conn = get_connection(db_name)
    cursor = conn.cursor()
    
    # Убеждаемся, что организация существует
@@ -316,10 +317,10 @@ def main():
    
    all_course_urls = collect_all_course_urls(session)
    
-#    all_course_urls = {
-#       "https://dpo.dvfu.ru/filmmaking-basics": ["Креативные индустрии"],
-#       "https://dpo.dvfu.ru/state-and-municipal-administration": ["Экономика и менеджмент"],
-#       "https://dpo.dvfu.ru/driver-training": ["Инженерия"],
+   # all_course_urls = {
+   #    "https://dpo.dvfu.ru/filmmaking-basics": ["Креативные индустрии"],
+   #    "https://dpo.dvfu.ru/state-and-municipal-administration": ["Экономика и менеджмент"],
+   #    "https://dpo.dvfu.ru/driver-training": ["Инженерия"],
 #       "https://dpo.dvfu.ru/basi-course-in-nanocad": ["не важно"],
 #       "https://dpo.dvfu.ru/logopedia": ["не важно"],
 #       "https://dpo.dvfu.ru/fitness-and-bodybuilding-instructor": ["важно"],
@@ -419,4 +420,4 @@ def main():
    print(f"Всего курсов: {len(all_course_urls)}")
 
 if __name__ == "__main__":
-   main()
+   main_dvfu(DB_NAME)

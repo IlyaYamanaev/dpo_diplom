@@ -14,7 +14,7 @@ from helpers import clean_text
 # ---------------------------------------------------------------------------
 BASE_URL = "https://dpo.kantiana.ru/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-ORGANIZATION_ID = 5
+ORGANIZATION_ID = 6
 DELAY = 0.4
 DB_NAME = "dpo_db"
 
@@ -321,9 +321,9 @@ def parse_course_page(url: str, html: str, specialization_name: str = None) -> d
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
-def main():
-   print("=== Парсер БФУ ДПО ===\n")
-   print("База данных: buff_dpo_db")
+def main_bfu(DB_NAME):
+   db_name = DB_NAME
+   print("=== Парсер БФУ ДПO ===\n")
    print(f"Organization ID: {ORGANIZATION_ID} (БФУ)\n")
    
    # Шаг 1: Собираем все URL курсов
@@ -336,12 +336,12 @@ def main():
    print(f"\nШаг 3: Обработка {len(course_urls)} курсов...\n")
    
    # Подключаемся к БД
-   conn = get_connection(DB_NAME)
+   conn = get_connection(db_name)
    cursor = conn.cursor()
    
    # Убеждаемся, что организация существует
    cursor.execute(
-      "INSERT INTO organizations (id, name) VALUES (5, 'БФУ') "
+      "INSERT INTO organizations (id, name) VALUES (6, 'БФУ') "
       "ON DUPLICATE KEY UPDATE name = name"
    )  
    conn.commit()
@@ -406,4 +406,4 @@ def main():
 
 
 if __name__ == "__main__":
-   main()
+   main_bfu(DB_NAME)

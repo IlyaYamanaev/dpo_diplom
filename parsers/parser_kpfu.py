@@ -268,14 +268,15 @@ def collect_cards() -> list:
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
-def main():
-   print("=== Парсер КФУ ДПО ===\n")
+def main_kpfu(DB_NAME):
+   db_name = DB_NAME
+   print("=== Парсер КФУ ДПO ===\n")
 
    print("Шаг 1: Собираю карточки из каталога...")
    cards_data = collect_cards()
    print(f"\nВсего курсов: {len(cards_data)}\n")
 
-   conn = get_connection(DB_NAME)
+   conn = get_connection(db_name)
    cursor = conn.cursor()
 
    # Убедимся что организация КФУ существует
@@ -350,4 +351,4 @@ def main():
 
 
 if __name__ == "__main__":
-   main()
+   main_kpfu(DB_NAME)

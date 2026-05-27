@@ -211,14 +211,15 @@ def collect_course_urls() -> list:
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
-def main():
+def main_hse(DB_NAME):
+   db_name = DB_NAME
    print("=== Парсер ВШЭ ДПО ===\n")
 
    print("Шаг 1: Собираю ссылки из каталога...")
    course_urls = collect_course_urls()
    print(f"\nВсего ссылок: {len(course_urls)}\n")
 
-   conn = get_connection(DB_NAME)
+   conn = get_connection(db_name)
    cursor = conn.cursor()
    
    # Убедимся что организация ВШЭ существует
@@ -292,7 +293,7 @@ def main():
 
 
 if __name__ == "__main__":
-   main()
+   main_hse(DB_NAME)
    
    
 # Готово. Вот что делает парсер по шагам: 

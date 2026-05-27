@@ -10,9 +10,6 @@ from db_functions import (
 )
 from helpers import (
    clean_text,
-   extract_price_from_text,
-   extract_duration,
-   get_html_with_playwright,
    get_html_with_playwright_selector
 )
 import random
@@ -23,7 +20,7 @@ import random
 BASE_URL = "https://practicum.yandex.ru"
 CATALOG_URL = "https://practicum.yandex.ru/catalog/"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
-ORGANIZATION_ID = 4  #####klvnbdxfbdlfkjg;dfsj'gjbf;gldfbgldsfng ldfb
+ORGANIZATION_ID = 8  #####klvnbdxfbdlfkjg;dfsj'gjbf;gldfbgldsfng ldfb
 DELAY = random.randint(5, 7) 
 DB_NAME = "buff_dpo_db"
 
@@ -37,6 +34,34 @@ def build_full_url(href: str) -> str:
       return href
    return BASE_URL + href
 
+
+def extract_duration(footer_text: str):
+   """
+   Из 'PRO, 6 месяцев' → '6 месяцев'
+   Из 'С нуля, PRO, 22 месяца' → '22 месяца'
+   Из 'С нуля' → None (нет информации о месяцах)
+   """
+   footer_text = clean_text(footer_text)
+   # Ищем фрагмент с числом и словом месяц/месяца/месяцев
+   match = re.search(r"(\d+\s*месяц\w*)", footer_text)
+   if match:
+      return match.group(1).strip()
+   return None
+
+
+def extract_price_from_text(text: str):
+   """
+   Извлекает целое число рублей из строки вида:
+   'на 36 месяцев или 105 000 ₽ одним платежом...'
+   Возвращает строку с числом (без пробелов) или None.
+   """   
+   text = clean_text(text)   
+   # Ищем число перед знаком ₽ (с пробелами внутри числа)
+   match = re.search(r"([\d][\d\s]*)\s*₽", text)
+   if match:
+      number = re.sub(r"\s", "", match.group(1))
+      return number
+   return None
 
 # ---------------------------------------------------------------------------
 # Парсинг главной страницы каталога
@@ -303,7 +328,8 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
-def main():
+def main_yandex_practic(DB_NAME):
+   db_name = DB_NAME
    print("=== Парсер Яндекс Практикум ===\n")
 
    print("Шаг 1: Загружаю каталог курсов...")
@@ -314,55 +340,54 @@ def main():
       print(f"Ошибка загрузки каталога: {e}")
       return
 
-   # cards_data = parse_catalog(resp.text)
+   cards_data = parse_catalog(resp.text)
    
-   cards_data = [
-      {
-         "url": "https://practicum.yandex.ru/project-manager/", # Ломается
-         "title": "Менеджер проектов",
-         "price": None,
-         "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
-         "specialization_names": ["Менеджмент"]
-      },
-      {
-         "url": "https://practicum.yandex.ru/product-manager-start/", # Ломается
-         "title": "ЧМенеджер продукта",
-         "price": None,
-         "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
-         "specialization_names": ["Менеджмент"]
-      },
-      {
-         "url": "https://start.practicum.yandex/start-in-marketing/", # стоит 0
-         "title": "Какую профессию выбрать в маркетинге",
-         "price": None,  
-         "duration": "Зuufudsuufsdufsdufusй не нужно писать код",
-         "specialization_names": ["куда податься"]
-      },
-      {
-         "url": "https://practicum.yandex.ru/interface-designer/", # Не ломается
-         "title": "Дизайнер интерфейсов",
-         "price": None,
-         "duration": "oiweorhwkfbsdjfklsdk нужно писать код",
-         "specialization_names": ["Дизайн"]
-      },
-      {
-         "url": "https://practicum.yandex.ru/1c-programmer/", # Ломается
-         "title": "Разработчик 1С",
-         "price": None,
-         "duration": "За 6 АХАХАХАХАХАХАХАХАХАХАХАХААХА",
-         "specialization_names": ["Программирование"]
-      },
-      
-   ]
+   # cards_data = [
+   #    {
+   #       "url": "https://practicum.yandex.ru/project-manager/", # Ломается
+   #       "title": "Менеджер проектов",
+   #       "price": None,
+   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
+   #       "specialization_names": ["Менеджмент"]
+   #    },
+   #    {
+   #       "url": "https://practicum.yandex.ru/product-manager-start/", # Ломается
+   #       "title": "ЧМенеджер продукта",
+   #       "price": None,
+   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
+   #       "specialization_names": ["Менеджмент"]
+   #    },
+   #    {
+   #       "url": "https://start.practicum.yandex/start-in-marketing/", # стоит 0
+   #       "title": "Какую профессию выбрать в маркетинге",
+   #       "price": None,  
+   #       "duration": "Зuufudsuufsdufsdufusй не нужно писать код",
+   #       "specialization_names": ["куда податься"]
+   #    },
+   #    {
+   #       "url": "https://practicum.yandex.ru/interface-designer/", # Не ломается
+   #       "title": "Дизайнер интерфейсов",
+   #       "price": None,
+   #       "duration": "oiweorhwkfbsdjfklsdk нужно писать код",
+   #       "specialization_names": ["Дизайн"]
+   #    },
+   #    {
+   #       "url": "https://practicum.yandex.ru/1c-programmer/", # Ломается
+   #       "title": "Разработчик 1С",
+   #       "price": None,
+   #       "duration": "За 6 АХАХАХАХАХАХАХАХАХАХАХАХААХА",
+   #       "specialization_names": ["Программирование"]
+   #    },
+   # ]
 
    print(f"Найдено курсов в каталоге: {len(cards_data)}\n")
 
-   conn = get_connection(DB_NAME)
+   conn = get_connection(db_name)
    cursor = conn.cursor()
 
-   # Убеждаемся, что организация Яндекс Практикум существует (id=4)
+   # Убеждаемся, что организация Яндекс Практикум существует (id=7)
    cursor.execute(
-      "INSERT INTO organizations (id, name) VALUES (4, 'Яндекс Практикум') "
+      "INSERT INTO organizations (id, name) VALUES (8, 'Яндекс Практикум') "
       "ON DUPLICATE KEY UPDATE name = name"
    )
    conn.commit()
@@ -440,5 +465,5 @@ def main():
 
 
 if __name__ == "__main__":
-   main()
+   main_yandex_practic(DB_NAME)
    

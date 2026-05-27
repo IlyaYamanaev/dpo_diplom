@@ -11,7 +11,7 @@ from db_functions import (
    update_department_contacts,
    link_course_specialization,
 )
-from helpers import clean_text, get_html_with_playwright
+from helpers import clean_text, get_html_with_playwright_selector
 
 # ---------------------------------------------------------------------------
 # Настройки
@@ -20,7 +20,7 @@ CATALOG_URL = "https://www.ranepa.ru/catalog-dpo/#page="
 BASE_URL = "https://www.ranepa.ru"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 ORGANIZATION_ID = 4
-DB_NAME = "dpo_db"
+DB_NAME = "buff_dpo_db"
 DELAY = 0.3
 
 BADGE_TO_COURSE_TYPE = {
@@ -77,6 +77,10 @@ def parse_card(li_tag) -> dict:
    title_tag = li_tag.find("h2", class_="pp-dpo-program__title")
    if title_tag:
       data["title"] = clean_text(title_tag.get_text())
+   else:
+      title_tag = li_tag.find("h3", class_="pp-dpo-program__title")
+      if title_tag:
+         data["title"] = clean_text(title_tag.get_text())
 
    # --- info-list: часы, формат, дата, цена ---
    for info in li_tag.find_all("li", class_="pp-dpo-program__info"):
@@ -106,7 +110,7 @@ def parse_card(li_tag) -> dict:
          if href.startswith("http"):
                data["url"] = href
          else:
-               data["url"] = BASE_URL + "/catalog-dpo/" + href.lstrip("/")
+               data["url"] = BASE_URL + "/" + href.lstrip("/")
 
    return data
 
@@ -127,7 +131,7 @@ def collect_cards() -> list:
       print(f"  Каталог, страница {page_num}...", end=" ", flush=True)
 
       try:
-         html = get_html_with_playwright(page_url)
+         html = get_html_with_playwright_selector(page_url, "li.pp-dpo-program")
       except Exception as e:
          print(f"ошибка загрузки: {e}")
          break
@@ -257,18 +261,20 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
-def main():
-   print("=== Парсер РАНХиГС ДПО ===\n")
+def main_ranepa(DB_NAME):
+   
+   db_name = DB_NAME
+   print("=== Парсер РАНХиГС ДПO ===\n")
 
    print("Шаг 1: Собираю карточки из каталога...")
    cards_data = collect_cards()
    print(f"\nВсего карточек: {len(cards_data)}\n")
 
-   conn = get_connection(DB_NAME)
+   conn = get_connection(db_name)
    cursor = conn.cursor()
 
    cursor.execute(
-      "INSERT INTO organizations (id, name) VALUES (5, 'РАНХиГС') "
+      "INSERT INTO organizations (id, name) VALUES (4, 'РАНХиГС') "
       "ON DUPLICATE KEY UPDATE name = name"
    )
    conn.commit()
@@ -314,7 +320,7 @@ def main():
 
          db_course = {k: course[k] for k in (
                "organization_id", "title", "price", "format", "course_type",
-               "duration", "date", "description", "url", "language", "document",
+               "duration", "date",  "description", "url", "language", "document",
                "admission_requirements", "schedule", "department_id", "duration_in_hours",
          )}
 
@@ -351,4 +357,4 @@ def main():
 
 
 if __name__ == "__main__":
-   main()
+   main_ranepa(DB_NAME)
