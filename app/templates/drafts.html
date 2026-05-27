@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Мои черновики | Каталог ДПО{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">Мои черновики</div>
+
+<!-- Поиск -->
+<div class="search-container">
+   <form method="GET" class="search-form">
+      <div class="search-wrapper">
+         <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M15.5 15.5L19 19M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+         <input type="text" name="search" placeholder="Поиск среди черновиков..."
+            value="{{ search_query }}" class="search-input">
+         {% if search_query %}
+         <a href="{{ url_for('drafts') }}" class="search-clear">✕</a>
+         {% endif %}
+         <button type="submit" class="search-button">Найти</button>
+      </div>
+   </form>
+</div>
+
+{% if drafts %}
+<div class="cards">
+   {% for d in drafts %}
+   <div class="card draft-card" id="draft-card-{{d.id}}">
+      <div class="draft-badge-card">ЧЕРНОВИК</div>
+
+      <div class="org-name">Мой курс</div>
+      <div class="categories-dot"><span class="category-dot">Черновик</span></div>
+
+      <div class="course-title">{{ d.title }}</div>
+
+      <div class="spacer"></div>
+
+      <div class="course-bottom">
+         <div class="bottom-left">
+            <div class="duration-text">{{ d.duration if d.duration else '—' }}</div>
+            <div class="hours-text">
+               {% if d.duration_in_hours %}{{ d.duration_in_hours }} ак.ч.{% else %}—{% endif %}
+            </div>
+         </div>
+         <div class="bottom-right">
+            <div class="course-type">{{ d.course_type if d.course_type else 'Черновик' }}</div>
+            <div class="price-large">
+               {% if d.price %}{{ d.price }} ₽{% else %}—{% endif %}
+            </div>
+         </div>
+      </div>
+
+      <div class="card-btns">
+         <a class="btn-main" href="/draft/{{d.id}}">Смотреть</a>
+         <button class="btn-delete-draft" onclick="deleteDraft({{d.id}})" title="Удалить черновик">🗑</button>
+      </div>
+   </div>
+   {% endfor %}
+</div>
+{% else %}
+<div class="no-results">
+   {% if search_query %}
+   <p>По запросу «{{ search_query }}» черновики не найдены.</p>
+   {% else %}
+   <p>У вас пока нет черновиков. Создайте курс в режиме Создателя.</p>
+   {% endif %}
+</div>
+{% endif %}
+
+<script>
+async function deleteDraft(draftId) {
+   if (!confirm('Удалить черновик? Это действие нельзя отменить.')) return;
+
+   const res = await fetch('/drafts/delete/' + draftId, { method: 'POST' });
+   const data = await res.json();
+   if (data.success) {
+      const card = document.getElementById('draft-card-' + draftId);
+      if (card) {
+         card.style.opacity = '0';
+         card.style.transform = 'scale(0.95)';
+         card.style.transition = 'all 0.3s ease';
+         setTimeout(() => card.remove(), 300);
+      }
+      showToast('🗑 Черновик удалён');
+   }
+}
+</script>
+{% endblock %}

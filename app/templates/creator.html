@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Создатель курсов | Каталог ДПО{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block content %}
+
+<div class="creator-layout">
+   <!-- ── ЛЕВАЯ КОЛОНКА: курсы ── -->
+   <div class="creator-left">
+      {% if selected_cat_name %}
+      <div class="courses-count-badge">{{ courses|length }} курсов в категории «{{ selected_cat_name }}»</div>
+      {% else %}
+      <div class="courses-count-badge">Выберите категорию справа, чтобы отфильтровать курсы</div>
+      {% endif %}
+
+      {% if courses %}
+      <div class="cards">
+         {% for c in courses %}
+         <div class="card org-{{c.organization_id}}">
+            <div class="org-name">{{ c.organization.name if c.organization else '—' }}</div>
+            <div class="categories-dot">
+               {% if c.categories %}
+                  {% for cat in c.categories %}<span class="category-dot">{{ cat.name }}</span>{% if not loop.last %}•{% endif %}{% endfor %}
+               {% else %}
+                  <span class="category-dot">Без категории</span>
+               {% endif %}
+            </div>
+            <div class="course-title">{{ c.title }}</div>
+            <div class="spacer"></div>
+            <div class="course-bottom">
+               <div class="bottom-left">
+                  <div class="duration-text">{{ c.duration if c.duration else c.duration_in_hours }}</div>
+                  <div class="hours-text">
+                     {% if c.duration_in_hours and c.duration_in_hours != 'Не указан' %}{{ c.duration_in_hours }} ак.ч.{% else %}—{% endif %}
+                  </div>
+               </div>
+               <div class="bottom-right">
+                  <div class="course-type">{{ c.course_type if c.course_type else 'Курс' }}</div>
+                  <div class="price-large">
+                     {% if c.price and c.price != 'None' %}{{ c.price }} ₽{% else %}—{% endif %}
+                  </div>
+               </div>
+            </div>
+            <div class="card-btns">
+               <a class="btn-main" href="/course/{{c.id}}">Смотреть</a>
+               {% if c.url %}<a class="btn-ext" href="{{ c.url }}" target="_blank" rel="noopener" title="На сайт организации">↗</a>{% endif %}
+            </div>
+         </div>
+         {% endfor %}
+      </div>
+      {% elif selected_category or selected_subcategory %}
+      <div class="no-results"><p>В выбранной категории курсов не найдено.</p></div>
+      {% endif %}
+   </div>
+
+   <!-- ── ПРАВАЯ КОЛОНКА: аналитика ── -->
+   <div class="creator-right">
+      <div class="analytics-panel">
+         <div class="analytics-header">
+            <h2>Создание курса</h2>
+            <div class="analytics-subhead">Анализ рынка ДПО</div>
+         </div>
+
+         <div class="analytics-body">
+            <!-- Выбор категории -->
+            <div class="cat-select-section">
+               <div class="section-label">Выберите категорию</div>
+               <form method="GET" action="{{ url_for('creator') }}" class="cat-filter-form">
+                  <select name="category" class="cat-select" id="catSelect" onchange="this.form.submit()">
+                     <option value="">— Все категории —</option>
+                     {% for cat in categories %}
+                     <option value="{{ cat.id }}" {% if selected_category == cat.id|string %}selected{% endif %}>
+                        {{ cat.name }} ({{ cat.course_count }})
+                     </option>
+                     {% endfor %}
+                  </select>
+                  <select name="subcategory" class="cat-select" id="subcatSelect" onchange="this.form.submit()">
+                     <option value="">— Все подкатегории —</option>
+                     {% for cat in categories %}
+                        {% for sub in cat.subcategories %}
+                        <option value="{{ sub.id }}"
+                           data-parent="{{ cat.id }}"
+                           {% if selected_subcategory == sub.id|string %}selected{% endif %}>
+                           {{ sub.name }} ({{ sub.course_count }})
+                        </option>
+                        {% endfor %}
+                     {% endfor %}
+                  </select>
+               </form>
+            </div>
+
+            {% if analytics %}
+            <div class="sep"></div>
+
+            {% if selected_cat_name %}
+            <div class="selected-chip">📊 {{ selected_cat_name }}</div>
+            {% endif %}
+
+            <!-- Метрики цены и часов -->
+            <div class="metrics-grid">
+               <div class="metric-card">
+                  <div class="metric-label">Средняя цена</div>
+                  <div class="metric-value">{{ '{:,}'.format(analytics.avg_price).replace(',', ' ') }} ₽</div>
+               </div>
+               <div class="metric-card">
+                  <div class="metric-label">Медианная цена</div>
+                  <div class="metric-value">{{ '{:,}'.format(analytics.median_price).replace(',', ' ') }} ₽</div>
+               </div>
+               <div class="metric-card" style="grid-column: 1 / -1;">
+                  <div class="metric-label">Средняя длительность</div>
+                  <div class="metric-value">{{ analytics.avg_hours }} ак.ч.</div>
+                  <div class="metric-sub">на основе {{ analytics.count }} курсов</div>
+               </div>
+            </div>
+
+            <!-- Формат -->
+            <div class="popular-block">
+               <div class="popular-title">Самый популярный формат</div>
+               <div class="popular-value">
+                  {{ analytics.top_format }}
+                  <span class="popular-percent">{{ analytics.top_format_pct }}%</span>
+               </div>
+               {% if analytics.other_formats %}
+               <div class="popular-others">
+                  {% for fmt, pct in analytics.other_formats %}{{ fmt }} — {{ pct }}%{% if not loop.last %} | {% endif %}{% endfor %}
+               </div>
+               {% endif %}
+            </div>
+
+            <!-- Тип -->
+            <div class="popular-block">
+               <div class="popular-title">Самый популярный тип</div>
+               <div class="popular-value" style="font-size:14px;">
+                  {{ analytics.top_type }}
+                  <span class="popular-percent">{{ analytics.top_type_pct }}%</span>
+               </div>
+               {% if analytics.other_types %}
+               <div class="popular-others">
+                  {% for t, pct in analytics.other_types %}{{ t }} — {{ pct }}%{% if not loop.last %} | {% endif %}{% endfor %}
+               </div>
+               {% endif %}
+            </div>
+
+            <div class="sep"></div>
+
+            <!-- ── ИНТЕРАКТИВНЫЕ ПОЛЯ ── -->
+            <div class="section-label">Ваш курс</div>
+
+            <!-- Название -->
+            <input type="text" id="draftTitle" class="title-input" placeholder="Название курса...">
+
+            <!-- Цена -->
+            <div class="ifield-wrap">
+               <div class="popular-title">ВАША ЦЕНА</div>
+               <input type="number" id="myPrice" placeholder="Введите цену (₽)" oninput="checkPrice(this.value)">
+               <div class="price-indicator" id="priceIndicator"></div>
+            </div>
+
+            <!-- Формат -->
+            <div class="ifield-wrap">
+               <div class="popular-title">ФОРМАТ</div>
+               <select id="myFormat" onchange="checkFormat(this.value)">
+                  <option value="">— Выберите формат —</option>
+                  {% for fmt in analytics.all_formats %}
+                  <option value="{{ fmt }}" {% if fmt == analytics.top_format %}data-top="1"{% endif %}>{{ fmt }}</option>
+                  {% endfor %}
+               </select>
+               <div class="format-hint" id="formatHint">✅ Популярный формат — хороший выбор!</div>
+            </div>
+
+            <!-- Тип курса -->
+            <div class="ifield-wrap">
+               <div class="popular-title">ТИП КУРСА</div>
+               <select id="myCourseType">
+                  <option value="">— Выберите тип —</option>
+                  {% for t in analytics.all_types %}
+                  <option value="{{ t }}">{{ t }}</option>
+                  {% endfor %}
+               </select>
+            </div>
+
+            <!-- Длительность и график -->
+            <div class="ifield-wrap">
+               <div class="popular-title">ДЛИТЕЛЬНОСТЬ И ГРАФИК</div>
+               <input type="number" id="myHours" placeholder="Академических часов" oninput="calcDuration()">
+               <select id="mySchedule" onchange="calcDuration()" style="margin-top:8px;">
+                  <option value="">— График занятий —</option>
+                  <option value="1 раз в неделю">1 раз в неделю</option>
+                  <option value="2 раза в неделю">2 раза в неделю</option>
+                  <option value="3 раза в неделю">3 раза в неделю</option>
+                  <option value="4 раза в неделю">4 раза в неделю</option>
+                  <option value="5 раз в неделю">5 раз в неделю (ежедневно)</option>
+               </select>
+               <div class="duration-result" id="durationResult"></div>
+            </div>
+
+            <!-- Кнопка создания черновика -->
+            <button class="create-btn" onclick="createDraft()">Создать курс</button>
+
+            <div class="insight-note">* Данные основаны на {{ analytics.count }} программах ДПО в выбранной категории</div>
+
+            {% else %}
+            <div class="no-cat-msg">
+               Выберите категорию, чтобы<br>увидеть аналитику рынка
+            </div>
+            {% endif %}
+         </div><!-- /analytics-body -->
+      </div>
+   </div>
+</div>
+
+<script>
+// Данные аналитики для JS
+const ANALYTICS = {
+   avgPrice: {{ analytics.avg_price if analytics else 0 }},
+   medianPrice: {{ analytics.median_price if analytics else 0 }},
+   avgHours: {{ analytics.avg_hours if analytics else 0 }},
+   topFormat: {{ ('"' ~ analytics.top_format ~ '"') | safe if analytics else '""' }},
+};
+
+// Проверка цены
+function checkPrice(val) {
+   const ind = document.getElementById('priceIndicator');
+   if (!val || !ANALYTICS.medianPrice) { ind.style.display = 'none'; return; }
+
+   const price = parseFloat(val);
+   const median = ANALYTICS.medianPrice;
+   const avg = ANALYTICS.avgPrice;
+   const ratio = price / median;
+
+   ind.style.display = 'block';
+   ind.className = 'price-indicator';
+
+   if (ratio < 0.6) {
+      ind.classList.add('pi-blue');
+      ind.textContent = '📉 Цена слишком низкая (менее 60% от медианы)';
+   } else if (ratio < 0.85) {
+      ind.classList.add('pi-green');
+      ind.textContent = '✅ Цена ниже рынка — хорошая конкурентоспособность';
+   } else if (ratio <= 1.15) {
+      ind.classList.add('pi-green');
+      ind.textContent = '✅ Цена близка к рыночной';
+   } else if (ratio <= 1.5) {
+      ind.classList.add('pi-yellow');
+      ind.textContent = '⚠️ Цена выше среднего — обоснуйте ценность курса';
+   } else {
+      ind.classList.add('pi-red');
+      ind.textContent = '🔴 Цена может быть слишком высокой';
+   }
+}
+
+// Проверка формата
+function checkFormat(val) {
+   const hint = document.getElementById('formatHint');
+   if (!val || !ANALYTICS.topFormat) { hint.style.display = 'none'; return; }
+
+   if (val === ANALYTICS.topFormat) {
+      hint.style.display = 'block';
+      hint.textContent = '✅ Популярный формат — хороший выбор!';
+   } else {
+      hint.style.display = 'none';
+   }
+}
+
+// Расчёт длительности
+function calcDuration() {
+   const hours = parseFloat(document.getElementById('myHours').value);
+   const schedule = document.getElementById('mySchedule').value;
+   const result = document.getElementById('durationResult');
+
+   if (!hours || !schedule) { result.style.display = 'none'; return; }
+
+   // 1 занятие = 2 ак.ч., занятий в неделю = число из schedule
+   const match = schedule.match(/^(\d)/);
+   if (!match) { result.style.display = 'none'; return; }
+
+   const sessionsPerWeek = parseInt(match[1]);
+   const hoursPerWeek = sessionsPerWeek * 2;
+   const weeks = Math.ceil(hours / hoursPerWeek);
+   const months = (weeks / 4.33).toFixed(1);
+
+   // Итоговое поле duration
+   const durationStr = weeks > 8
+      ? `${months} мес. (≈ ${weeks} нед.)`
+      : `${weeks} нед.`;
+
+   document.getElementById('durationResult').textContent =
+      `📅 Примерная длительность: ${durationStr}`;
+   result.style.display = 'block';
+
+   // Сохраняем для черновика
+   result.dataset.durationStr = durationStr;
+}
+
+// Создание черновика
+async function createDraft() {
+   const title = document.getElementById('draftTitle')?.value.trim();
+   const price = document.getElementById('myPrice')?.value;
+   const format = document.getElementById('myFormat')?.value;
+   const courseType = document.getElementById('myCourseType')?.value;
+   const hours = document.getElementById('myHours')?.value;
+   const schedule = document.getElementById('mySchedule')?.value;
+   const durationResult = document.getElementById('durationResult');
+   const duration = durationResult?.dataset.durationStr || '';
+
+   if (!title) {
+      showToast('⚠️ Введите название курса');
+      document.getElementById('draftTitle').focus();
+      return;
+   }
+
+   const res = await fetch('/drafts/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+         title,
+         price: price || null,
+         format: format || null,
+         course_type: courseType || null,
+         duration_in_hours: hours || null,
+         duration: duration || null,
+         schedule: schedule || null,
+      })
+   });
+   const data = await res.json();
+
+   if (data.success) {
+      showToast('✅ Черновик создан!');
+      // Очищаем поля
+      ['draftTitle','myPrice','myHours'].forEach(id => {
+         const el = document.getElementById(id);
+         if (el) el.value = '';
+      });
+      ['myFormat','mySchedule','myCourseType'].forEach(id => {
+         const el = document.getElementById(id);
+         if (el) el.selectedIndex = 0;
+      });
+      document.getElementById('priceIndicator').style.display = 'none';
+      document.getElementById('formatHint').style.display = 'none';
+      document.getElementById('durationResult').style.display = 'none';
+   } else {
+      showToast('❌ Ошибка: ' + (data.error || 'неизвестная'));
+   }
+}
+
+// Фильтрация подкатегорий по выбранной категории
+const catSelect = document.getElementById('catSelect');
+const subcatSelect = document.getElementById('subcatSelect');
+
+function filterSubcats() {
+   const catId = catSelect.value;
+   const opts = subcatSelect.querySelectorAll('option');
+   opts.forEach(opt => {
+      if (!opt.value) return; // "— Все подкатегории —"
+      opt.style.display = (!catId || opt.dataset.parent === catId) ? '' : 'none';
+   });
+}
+
+catSelect.addEventListener('change', function() {
+   subcatSelect.value = '';
+   filterSubcats();
+});
+
+filterSubcats(); // инициализация
+</script>
+
+{% endblock %}

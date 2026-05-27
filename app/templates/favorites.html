@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Избранное | Каталог ДПО{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block content %}
+
+<div class="page-heading">Избранное</div>
+
+<!-- Поиск -->
+<div class="search-container">
+   <form method="GET" class="search-form">
+      <div class="search-wrapper">
+         <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M15.5 15.5L19 19M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+         <input type="text" name="search" placeholder="Поиск в избранном..."
+            value="{{ search_query }}" class="search-input">
+         {% if search_query %}
+         <a href="{{ url_for('favorites') }}" class="search-clear">✕</a>
+         {% endif %}
+         <button type="submit" class="search-button">Найти</button>
+      </div>
+   </form>
+</div>
+
+{% if courses %}
+<div class="cards">
+   {% for c in courses %}
+   <div class="card org-{{c.organization_id}}" id="card-{{c.id}}">
+      <button class="fav-btn fav-active"
+              onclick="removeFavorite({{c.id}}, this)"
+              title="Убрать из избранного">❤</button>
+
+      <div class="org-name">{{ c.organization.name if c.organization else '—' }}</div>
+
+      <div class="categories-dot">
+         {% if c.categories %}
+            {% for cat in c.categories %}
+            <span class="category-dot">{{ cat.name }}</span>{% if not loop.last %}•{% endif %}
+            {% endfor %}
+         {% else %}
+            <span class="category-dot">Без категории</span>
+         {% endif %}
+      </div>
+
+      <div class="course-title">{{ c.title }}</div>
+
+      <div class="spacer"></div>
+
+      <div class="course-bottom">
+         <div class="bottom-left">
+            <div class="duration-text">{{ c.duration if c.duration else c.duration_in_hours }}</div>
+            <div class="hours-text">
+               {% if c.duration_in_hours and c.duration_in_hours != 'Не указан' %}
+               {{ c.duration_in_hours }} ак.ч.
+               {% else %}Не указана{% endif %}
+            </div>
+         </div>
+         <div class="bottom-right">
+            <div class="course-type">{{ c.course_type if c.course_type else 'Курс' }}</div>
+            <div class="price-large">
+               {% if c.price and c.price != 'None' %}{{ c.price }} ₽{% else %}Отсутствует{% endif %}
+            </div>
+         </div>
+      </div>
+
+      <div class="card-btns">
+         <a class="btn-main" href="/course/{{c.id}}">Смотреть</a>
+         {% if c.url %}
+         <a class="btn-ext" href="{{ c.url }}" target="_blank" rel="noopener" title="Открыть на сайте организации">↗</a>
+         {% endif %}
+      </div>
+   </div>
+   {% endfor %}
+</div>
+{% else %}
+<div class="no-results">
+   {% if search_query %}
+   <p>По запросу «{{ search_query }}» ничего не найдено в избранном.</p>
+   {% else %}
+   <p>У вас пока нет избранных курсов. Добавьте курсы, нажав на ♡ на карточке.</p>
+   {% endif %}
+</div>
+{% endif %}
+
+<script>
+async function removeFavorite(courseId, btn) {
+   const res = await fetch('/favorites/toggle', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({course_id: courseId})
+   });
+   const data = await res.json();
+   if (data.success && !data.is_favorite) {
+      const card = document.getElementById('card-' + courseId);
+      if (card) {
+         card.style.opacity = '0';
+         card.style.transform = 'scale(0.95)';
+         card.style.transition = 'all 0.3s ease';
+         setTimeout(() => card.remove(), 300);
+      }
+      showToast('♡ Убрано из избранного');
+   }
+}
+</script>
+{% endblock %}

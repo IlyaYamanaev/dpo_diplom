@@ -1,31 +1,174 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-   <link rel="stylesheet" href="/static/styles.css">
-</head>
+{% block title %}{{ course.title }} | Каталог ДПО{% endblock %}
 
-<body>
+{% block extra_head %}
 
-   <div class="course-page">
+{% endblock %}
 
-      <h2>{{ course.title }}</h2>
+{% block content %}
+<div class="course-page">
+   <a class="back-link" href="{{ url_for('index') }}">← Назад к каталогу</a>
 
-      <p><b>Организация:</b> {{ course.organization.name }}</p>
-      <p><b>Кафедра:</b> {{ course.department.name }}</p>
+   <!-- Шапка курса -->
+   <div class="course-hero">
+      {% if is_draft %}
+      <div class="draft-badge">📄 Черновик</div>
+      {% endif %}
 
-      <p><b>Цена:</b> {{ course.price }}</p>
-      <p><b>Формат:</b> {{ course.format }}</p>
-      <p><b>Длительность:</b> {{ course.duration or course.duration_in_hours }}</p>
-      <p><b>Язык:</b> {{ course.language }}</p>
-      <p><b>Тип:</b> {{ course.course_type }}</p>
-      <p><b>Ссылка:</b> <a href="{{ course.url }}" target="_blank">Перейти к курсу</a></p>
+      {% if not is_draft and course.organization %}
+      <div class="course-hero__org">{{ course.organization.name }}</div>
+      {% endif %}
 
+      <div class="course-hero__title">{{ course.title }}</div>
 
-      <a href="/">Назад</a>
-
+      {% if not is_draft and course.categories %}
+      <div class="course-hero__cats">
+         {% for cat in course.categories %}
+         <span class="cat-pill">{{ cat.name }}</span>
+         {% endfor %}
+      </div>
+      {% endif %}
    </div>
 
-</body>
+   <!-- Основные метрики -->
+   <div class="course-main-info">
+      {% if course.price and course.price != 'None' %}
+      <div class="info-card">
+         <div class="info-card__label">Стоимость</div>
+         <div class="info-card__value">{{ course.price }} ₽</div>
+      </div>
+      {% endif %}
 
-</html>
+      {% if course.format %}
+      <div class="info-card">
+         <div class="info-card__label">Формат</div>
+         <div class="info-card__value">{{ course.format }}</div>
+      </div>
+      {% endif %}
+
+      {% if course.duration %}
+      <div class="info-card">
+         <div class="info-card__label">Продолжительность</div>
+         <div class="info-card__value">{{ course.duration }}</div>
+      </div>
+      {% endif %}
+
+      {% if course.duration_in_hours and course.duration_in_hours != 'Не указан' %}
+      <div class="info-card">
+         <div class="info-card__label">Продолжительность в часах</div>
+         <div class="info-card__value">{{ course.duration_in_hours }} ак.ч.</div>
+      </div>
+      {% endif %}
+
+      {% if course.course_type %}
+      <div class="info-card">
+         <div class="info-card__label">Тип курса</div>
+         <div class="info-card__value" style="font-size:16px;">{{ course.course_type }}</div>
+      </div>
+      {% endif %}
+
+      {% if course.document %}
+      <div class="info-card">
+         <div class="info-card__label">Документ</div>
+         <div class="info-card__value" style="font-size:16px;">{{ course.document }}</div>
+      </div>
+      {% endif %}
+
+      {% if course.language %}
+      <div class="info-card">
+         <div class="info-card__label">Язык</div>
+         <div class="info-card__value">{{ course.language }}</div>
+      </div>
+      {% endif %}
+   </div>
+
+   <!-- Описание -->
+   {% if course.description %}
+   <div class="course-block">
+      <div class="course-block__title">Описание</div>
+      <div class="course-block__text">{{ course.description }}</div>
+   </div>
+   {% endif %}
+
+   <!-- Требования к поступлению -->
+   {% if course.admission_requirements != "Не указаны" %}
+   <div class="course-block">
+      <div class="course-block__title">Требования к поступлению</div>
+      <div class="course-block__text">{{ course.admission_requirements }}</div>
+   </div>
+   {% endif %}
+
+   <!-- График -->
+   {% if course.schedule != "Не указан"%}
+   <div class="course-block">
+      <div class="course-block__title">График занятий</div>
+      <div class="course-block__text">{{ course.schedule }}</div>
+   </div>
+   {% endif %}
+
+   <!-- Подразделение -->
+   {% if not is_draft and course.department %}
+   <div class="course-block">
+      <div class="course-block__title">Подразделение</div>
+      <div class="course-block__text" style="font-weight:600; font-size:16px; margin-bottom:8px;">
+         {{ course.department.name }}
+      </div>
+      {% if course.department.address %}
+      <div class="course-block__text" style="color:#6b7280; margin-bottom:10px;">
+         🖈 {{ course.department.address }}
+      </div>
+      {% endif %}
+
+      {% if course.department.phones or course.department.emails %}
+      <div class="dept-contacts">
+         {% for phone in course.department.phones %}
+         <span class="dept-contact-item">☎ {{ phone.phone }}</span>
+         {% endfor %}
+         {% for email in course.department.emails %}
+         <span class="dept-contact-item">✉ {{ email.email }}</span>
+         {% endfor %}
+      </div>
+      {% endif %}
+   </div>
+   {% endif %}
+
+   <!-- Действия -->
+   <div class="course-actions">
+      {% if not is_draft and course.url %}
+      <a class="btn-course-ext" href="{{ course.url }}" target="_blank" rel="noopener">
+         Открыть на сайте организации ↗
+      </a>
+      {% endif %}
+
+      {% if not is_draft %}
+      <button class="fav-btn-page {% if is_favorite %}fav-active{% endif %}"
+              id="pageFavBtn"
+              onclick="toggleFavoritePage({{ course.id }})">
+         {% if is_favorite %}❤ В избранном{% else %}♡ В избранное{% endif %}
+      </button>
+      {% endif %}
+   </div>
+</div>
+
+<script>
+async function toggleFavoritePage(courseId) {
+   {% if current_user %}
+   const btn = document.getElementById('pageFavBtn');
+   const res = await fetch('/favorites/toggle', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({course_id: courseId})
+   });
+   const data = await res.json();
+   if (data.success) {
+      btn.classList.toggle('fav-active', data.is_favorite);
+      btn.innerHTML = data.is_favorite ? '❤ В избранном' : '♡ В избранное';
+      showToast(data.is_favorite ? '❤ Добавлено в избранное' : '♡ Убрано из избранного');
+   }
+   {% else %}
+   openAuthModal('login');
+   {% endif %}
+}
+</script>
+{% endblock %}

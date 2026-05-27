@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>{% block title %}Каталог программ ДПO{% endblock %}</title>
+   <link rel="stylesheet" href="/static/styles.css">
+   {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ШАПКА -->
+<header class="site-header">
+   <a class="site-header__logo" href="{{ url_for('index') }}">Каталог ДПО</a>
+
+   <nav class="site-header__right">
+      <!-- Избранное -->
+      {% if current_user %}
+      <a href="{{ url_for('favorites') }}" class="hdr-btn" title="Избранное">
+         ♡ Избранное
+      </a>
+      {% else %}
+      <span class="hdr-btn hdr-btn--disabled" title="Войдите, чтобы использовать избранное">♡ Избранное</span>
+      {% endif %}
+
+      <!-- Черновики -->
+      {% if current_user %}
+      <a href="{{ url_for('drafts') }}" class="hdr-btn" title="Мои черновики">
+         📄 Черновики
+      </a>
+      {% else %}
+      <span class="hdr-btn hdr-btn--disabled" title="Войдите, чтобы просматривать черновики">📄 Черновики</span>
+      {% endif %}
+
+      <!-- Переключатель режима -->
+      <div class="mode-toggle">
+         <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' or request.endpoint == 'course' or request.endpoint == 'favorites' %}active{% endif %}">
+            Пользователь
+         </a>
+         {% if current_user %}
+         <a href="{{ url_for('creator') }}" class="{% if request.endpoint == 'creator' %}active{% endif %}">
+            Создатель
+         </a>
+         {% else %}
+         <span class="disabled" title="Войдите, чтобы использовать режим создателя">Создатель</span>
+         {% endif %}
+      </div>
+
+      <!-- Кнопка входа / логин -->
+      {% if current_user %}
+      <button class="hdr-btn hdr-btn--auth" id="userMenuBtn" onclick="openUserMenu()">
+         👤 {{ current_user.login }}
+      </button>
+      {% else %}
+      <button class="hdr-btn hdr-btn--auth" onclick="openAuthModal('login')">
+         Войти
+      </button>
+      {% endif %}
+   </nav>
+</header>
+
+{% block content %}{% endblock %}
+
+<!-- МОДАЛЬНОЕ ОКНО АВТОРИЗАЦИИ -->
+<div class="modal-overlay" id="authModal" onclick="closeAuthOnOverlay(event)">
+   <div class="modal">
+      <button class="modal__close" onclick="closeAuthModal()">×</button>
+
+      <div class="modal-tabs">
+         <button class="modal-tab active" id="tabLogin" onclick="switchTab('login')">Войти</button>
+         <button class="modal-tab" id="tabRegister" onclick="switchTab('register')">Зарегистрироваться</button>
+      </div>
+
+      <!-- Форма входа -->
+      <div class="modal-form active" id="formLogin">
+         <div class="modal-field">
+            <label>Логин</label>
+            <input type="text" id="loginUsername" placeholder="Введите логин" autocomplete="username">
+         </div>
+         <div class="modal-field">
+            <label>Пароль</label>
+            <input type="password" id="loginPassword" placeholder="Введите пароль" autocomplete="current-password">
+         </div>
+         <button class="modal-submit" onclick="doLogin()">Войти</button>
+         <div class="modal-error" id="loginError"></div>
+      </div>
+
+      <!-- Форма регистрации -->
+      <div class="modal-form" id="formRegister">
+         <div class="modal-field">
+            <label>Логин</label>
+            <input type="text" id="regUsername" placeholder="Придумайте логин" autocomplete="username">
+         </div>
+         <div class="modal-field">
+            <label>Пароль</label>
+            <input type="password" id="regPassword" placeholder="Придумайте пароль" autocomplete="new-password">
+         </div>
+         <button class="modal-submit" onclick="doRegister()">Зарегистрироваться</button>
+         <div class="modal-error" id="registerError"></div>
+      </div>
+   </div>
+</div>
+
+<!-- МЕНЮ ПОЛЬЗОВАТЕЛЯ (если авторизован) -->
+{% if current_user %}
+<div class="modal-overlay" id="userMenuModal" onclick="closeUserMenu(event)">
+   <div class="modal" style="max-width:280px; padding:24px;">
+      <button class="modal__close" onclick="document.getElementById('userMenuModal').classList.remove('open')">×</button>
+      <div style="text-align:center; margin-bottom:20px;">
+         <div style="font-size:40px; margin-bottom:8px;">👤</div>
+         <div style="font-weight:700; font-size:18px; color:#1f2937;">{{ current_user.login }}</div>
+      </div>
+      <button class="modal-submit" style="background:#ef4444;" onclick="doLogout()">Выйти</button>
+   </div>
+</div>
+{% endif %}
+
+<!-- ТОСТ-УВЕДОМЛЕНИЕ -->
+<div class="toast" id="toast"></div>
+
+<script>
+   // ── АВТОРИЗАЦИЯ ──
+   function openAuthModal(tab) {
+      document.getElementById('authModal').classList.add('open');
+      if (tab) switchTab(tab);
+   }
+
+   function closeAuthModal() {
+      document.getElementById('authModal').classList.remove('open');
+   }
+
+   function closeAuthOnOverlay(e) {
+      if (e.target === e.currentTarget) closeAuthModal();
+   }
+
+   function switchTab(tab) {
+      document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+      document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+      document.getElementById('formLogin').classList.toggle('active', tab === 'login');
+      document.getElementById('formRegister').classList.toggle('active', tab === 'register');
+      document.getElementById('loginError').textContent = '';
+      document.getElementById('registerError').textContent = '';
+   }
+
+   async function doLogin() {
+      const login = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      const errorEl = document.getElementById('loginError');
+
+      const res = await fetch('/login', {
+         method: 'POST',
+         headers: {'Content-Type': 'application/json'},
+         body: JSON.stringify({login, password})
+      });
+      const data = await res.json();
+
+      if (data.success) {
+         location.reload();
+      } else {
+         errorEl.textContent = data.error;
+      }
+   }
+
+   async function doRegister() {
+      const login = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('regPassword').value.trim();
+      const errorEl = document.getElementById('registerError');
+
+      const res = await fetch('/register', {
+         method: 'POST',
+         headers: {'Content-Type': 'application/json'},
+         body: JSON.stringify({login, password})
+      });
+      const data = await res.json();
+
+      if (data.success) {
+         location.reload();
+      } else {
+         errorEl.textContent = data.error;
+      }
+   }
+
+   // ── МЕНЮ ПОЛЬЗОВАТЕЛЯ ──
+   function openUserMenu() {
+      const m = document.getElementById('userMenuModal');
+      if (m) m.classList.add('open');
+   }
+
+   function closeUserMenu(e) {
+      const m = document.getElementById('userMenuModal');
+      if (m && e.target === e.currentTarget) m.classList.remove('open');
+   }
+
+   async function doLogout() {
+      await fetch('/logout', {method: 'POST'});
+      location.reload();
+   }
+
+   // ── ТОСТ ──
+   function showToast(msg, duration = 2500) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), duration);
+   }
+
+   // ── ИЗБРАННОЕ (глобальная функция) ──
+   async function toggleFavorite(courseId, btn) {
+      {% if current_user %}
+      const res = await fetch('/favorites/toggle', {
+         method: 'POST',
+         headers: {'Content-Type': 'application/json'},
+         body: JSON.stringify({course_id: courseId})
+      });
+      const data = await res.json();
+      if (data.success) {
+         btn.classList.toggle('fav-active', data.is_favorite);
+         btn.title = data.is_favorite ? 'Убрать из избранного' : 'Добавить в избранное';
+         showToast(data.is_favorite ? '❤ Добавлено в избранное' : '♡ Убрано из избранного');
+      }
+      {% else %}
+      openAuthModal('login');
+      {% endif %}
+   }
+
+   // Keyboard: Enter в полях ввода
+   document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+         const loginForm = document.getElementById('formLogin');
+         const regForm = document.getElementById('formRegister');
+         if (loginForm && loginForm.classList.contains('active')) doLogin();
+         else if (regForm && regForm.classList.contains('active')) doRegister();
+      }
+      if (e.key === 'Escape') closeAuthModal();
+   });
+</script>
+
+</body>
+</html>
