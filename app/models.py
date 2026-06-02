@@ -2,8 +2,12 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
+
+DB_NAME = 'dpo_db'
+
+
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:zxcvbnasdqwe@localhost/buff_dpo_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://root:zxcvbnasdqwe@localhost/{DB_NAME}'
 app.config['SECRET_KEY'] = 'dpo_secret_key_diploma_2024'
 db = SQLAlchemy(app)
 
@@ -53,6 +57,7 @@ class Course(db.Model):
    course_type = db.Column(db.String)
    description = db.Column(db.Text)
    date = db.Column(db.String(150))
+   norm_date = db.Column(db.Date)      ##############
    schedule = db.Column(db.String(255))
    admission_requirements = db.Column(db.Text)
    organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'))
@@ -121,22 +126,30 @@ class FavoriteCourse(db.Model):
 class DraftCourse(db.Model):
    __tablename__ = 'draft_dpo_courses'
    id = db.Column(db.Integer, primary_key=True)
-   organization_id = db.Column(db.Integer, nullable=True)
    title = db.Column(db.String(500), nullable=False)
    price = db.Column(db.String(100), nullable=True)
    format = db.Column(db.String(150), nullable=True)
    duration = db.Column(db.String(100), nullable=True)
    date = db.Column(db.String(150), nullable=True)
    description = db.Column(db.Text, nullable=True)
-   url = db.Column(db.String(500), nullable=True)
    language = db.Column(db.String(100), nullable=True)
    document = db.Column(db.String(100), nullable=True)
    created_at = db.Column(db.DateTime, server_default=db.func.now())
-   department_id = db.Column(db.Integer, nullable=True)
+   updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
    course_type = db.Column(db.String(100), nullable=True)
    admission_requirements = db.Column(db.Text, nullable=True)
    schedule = db.Column(db.String(255), nullable=True)
    duration_in_hours = db.Column(db.String(100), nullable=True)
+   competitiveness_score = db.Column(db.Integer, nullable=True)
+   has_document = db.Column(db.Boolean, default=False)
+   has_installment = db.Column(db.Boolean, default=False)
+   has_date = db.Column(db.Boolean, default=False)
+   notes = db.Column(db.Text, nullable=True)
+   category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
+   subcategory_id = db.Column(db.Integer, db.ForeignKey('subcategories.id'), nullable=True)
+
+   category = db.relationship('Category', foreign_keys='DraftCourse.category_id')
+   subcategory = db.relationship('Subcategory', foreign_keys='DraftCourse.subcategory_id')
 
 
 class UserDraft(db.Model):

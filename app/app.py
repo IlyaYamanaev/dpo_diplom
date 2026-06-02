@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import Integer, case, cast, func
 from sqlalchemy.orm import joinedload, selectinload
 from models import (
    db,
@@ -17,7 +16,10 @@ from models import (
    DraftCourse,
    UserDraft
 )
+from analytical_functions import build_analytics
 
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 
 # ─────────────────────────────────────────────
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -113,6 +115,36 @@ def apply_course_filters(query):
       query = query.filter(Course.duration_in_hours.cast(db.Integer) >= int(hours_min))
    if hours_max and hours_max.isdigit():
       query = query.filter(Course.duration_in_hours.cast(db.Integer) <= int(hours_max))
+      
+      
+   # Фильтр по дате (несколько чекбоксов объединяются через OR)
+   # Фильтр по дате (несколько чекбоксов объединяются через OR)
+   date_options = request.args.getlist('date_option')
+   if date_options:
+      today = date.today()
+      conditions = []
+      for opt in date_options:
+         if opt == 'no_date':
+               conditions.append(Course.norm_date.is_(None))
+         elif opt == 'has_date':
+               conditions.append(Course.norm_date.isnot(None))
+         elif opt == 'past':
+               conditions.append(Course.norm_date < today)
+         elif opt == '2weeks':
+               end_date = today + timedelta(days=14)
+               conditions.append(Course.norm_date.between(today, end_date))
+         elif opt == '1month':
+               end_date = today + relativedelta(months=1)
+               conditions.append(Course.norm_date.between(today, end_date))
+         elif opt == '3months':
+               end_date = today + relativedelta(months=3)
+               conditions.append(Course.norm_date.between(today, end_date))
+         elif opt == '6months':
+               end_date = today + relativedelta(months=6)
+               conditions.append(Course.norm_date.between(today, end_date))
+      if conditions:
+         from sqlalchemy import or_
+         query = query.filter(or_(*conditions))
 
    return query
 
@@ -135,7 +167,6 @@ def get_favorite_ids(user):
 # ─────────────────────────────────────────────
 # ГЛАВНАЯ СТРАНИЦА
 # ─────────────────────────────────────────────
-
 @app.route('/')
 def index():
    query = Course.query.options(
@@ -145,7 +176,40 @@ def index():
       selectinload(Course.subcategories)
    )
    query = apply_course_filters(query)
-   query = query.order_by(func.rand())
+   
+   # Сортировка
+   sort_param = request.args.get('sort', '')
+   if sort_param == 'title_asc':
+      query = query.order_by(Course.title.asc())
+   elif sort_param == 'title_desc':
+      query = query.order_by(Course.title.desc())
+   elif sort_param == 'price_asc':
+      query = query.order_by(
+         case((Course.price == None, 1), else_=0),
+         cast(Course.price, Integer).asc()
+      )
+   elif sort_param == 'price_desc':
+      query = query.order_by(
+         case((Course.price == None, 1), else_=0),
+         cast(Course.price, Integer).desc()
+      )
+   elif sort_param == 'hours_asc':
+      query = query.order_by(
+         case((Course.duration_in_hours == None, 1), else_=0),
+         cast(Course.duration_in_hours, Integer).asc()
+      )
+   elif sort_param == 'hours_desc':
+      query = query.order_by(
+         case((Course.duration_in_hours == None, 1), else_=0),
+         cast(Course.duration_in_hours, Integer).desc()
+      )
+   elif sort_param == 'date_asc':
+      # Только будущие курсы, от ближайших к дальним
+      query = query.filter(Course.norm_date >= func.current_date()).order_by(Course.norm_date.asc())
+   else:
+      query = query.order_by(func.rand())
+   
+   
    courses = query.all()
 
    min_price, max_price, min_hours, max_hours = get_price_hours_bounds()
@@ -183,7 +247,6 @@ def index():
 # ─────────────────────────────────────────────
 # СТРАНИЦА КУРСА
 # ─────────────────────────────────────────────
-
 @app.route('/course/<int:id>')
 def course(id):
    course_obj = Course.query.options(
@@ -205,27 +268,15 @@ def course(id):
 # ─────────────────────────────────────────────
 # СТРАНИЦА ЧЕРНОВИКА
 # ─────────────────────────────────────────────
-
 @app.route('/draft/<int:id>')
 def draft_view(id):
-   current_user = get_current_user()
-   if not current_user:
-      return redirect(url_for('index'))
-
-   draft = DraftCourse.query.get_or_404(id)
-   # Проверяем, что это черновик текущего пользователя
-   link = UserDraft.query.filter_by(user_id=current_user.id, draft_course_id=id).first()
-   if not link:
-      return redirect(url_for('index'))
-
-   return render_template('course.html', course=draft, current_user=current_user,
-                        is_favorite=False, is_draft=True)
+   # Перенаправляем на страницу редактирования
+   return redirect(url_for('edit', id=id))
 
 
 # ─────────────────────────────────────────────
 # АВТОРИЗАЦИЯ
 # ─────────────────────────────────────────────
-
 @app.route('/register', methods=['POST'])
 def register():
    data = request.get_json()
@@ -270,7 +321,6 @@ def logout():
 # ─────────────────────────────────────────────
 # ИЗБРАННОЕ
 # ─────────────────────────────────────────────
-
 @app.route('/favorites/toggle', methods=['POST'])
 def toggle_favorite():
    current_user = get_current_user()
@@ -318,11 +368,41 @@ def favorites():
    return render_template('favorites.html', courses=courses, current_user=current_user,
                         favorite_ids=favorite_ids, search_query=search_query)
 
+# ─────────────────────────────────────────────
+# API: АНАЛИТИКА КАТЕГОРИИ (для draft_edit)
+# ─────────────────────────────────────────────
+@app.route('/api/category_analytics/<int:cat_id>')
+def api_category_analytics(cat_id):
+   courses = Course.query.filter(
+      Course.id.in_(
+         db.session.query(rel_course_category.c.course_id).filter(
+            rel_course_category.c.category_id == cat_id
+         )
+      )
+   ).all()
+
+   if not courses:
+      return jsonify({'success': False, 'analytics': {}})
+
+   a = build_analytics(courses)
+   return jsonify({
+      'success': True,
+      'analytics': {
+         'medianPrice':     a.get('median_price', 0),
+         'avgPrice':        a.get('avg_price', 0),
+         'q1Price':         a.get('q1_price', 0),
+         'q3Price':         a.get('q3_price', 0),
+         'q1Hours':         a.get('q1_hours', 0),
+         'q3Hours':         a.get('q3_hours', 0),
+         'avgPricePerHour': a.get('avg_price_per_hour', 0),
+         'topFormat':       a.get('top_format', ''),
+         'count':           a.get('count', 0),
+      }
+   })
 
 # ─────────────────────────────────────────────
-# CREATOR MODE
+# СТРАНИЦА СОЗДАТЕЛЯ КУРСА
 # ─────────────────────────────────────────────
-
 @app.route('/creator')
 def creator():
    current_user = get_current_user()
@@ -331,7 +411,6 @@ def creator():
 
    categories = get_categories_with_subcats()
 
-   # Фильтрация курсов по выбранной категории/подкатегории
    query = Course.query.options(
       joinedload(Course.organization),
       joinedload(Course.department),
@@ -339,89 +418,47 @@ def creator():
       selectinload(Course.subcategories)
    )
 
-   selected_category = request.args.get('category', '')
+   selected_category    = request.args.get('category', '')
    selected_subcategory = request.args.get('subcategory', '')
 
    if selected_subcategory and selected_subcategory.isdigit():
       query = query.filter(
          Course.id.in_(
-               db.session.query(rel_course_subcategory.c.course_id).filter(
-                  rel_course_subcategory.c.subcategory_id == int(selected_subcategory)
-               )
+            db.session.query(rel_course_subcategory.c.course_id).filter(
+               rel_course_subcategory.c.subcategory_id == int(selected_subcategory)
+            )
          )
       )
    elif selected_category and selected_category.isdigit():
       query = query.filter(
          Course.id.in_(
-               db.session.query(rel_course_category.c.course_id).filter(
-                  rel_course_category.c.category_id == int(selected_category)
-               )
+            db.session.query(rel_course_category.c.course_id).filter(
+               rel_course_category.c.category_id == int(selected_category)
+            )
          )
       )
 
-   courses = query.order_by(func.rand()).all()
+   sort_param = request.args.get('sort', '')
+   if sort_param == 'title_asc':
+      query = query.order_by(Course.title.asc())
+   elif sort_param == 'title_desc':
+      query = query.order_by(Course.title.desc())
+   elif sort_param == 'price_asc':
+      query = query.order_by(case((Course.price == None, 1), else_=0), cast(Course.price, Integer).asc())
+   elif sort_param == 'price_desc':
+      query = query.order_by(case((Course.price == None, 1), else_=0), cast(Course.price, Integer).desc())
+   elif sort_param == 'hours_asc':
+      query = query.order_by(case((Course.duration_in_hours == None, 1), else_=0), cast(Course.duration_in_hours, Integer).asc())
+   elif sort_param == 'hours_desc':
+      query = query.order_by(case((Course.duration_in_hours == None, 1), else_=0), cast(Course.duration_in_hours, Integer).desc())
+   elif sort_param == 'date_asc':
+      query = query.filter(Course.norm_date >= func.current_date()).order_by(Course.norm_date.asc())
+   else:
+      query = query.order_by(func.rand())
 
-   # Аналитика
-   analytics = {}
-   if courses:
-      prices = []
-      hours_list = []
-      formats_count = {}
-      types_count = {}
+   courses = query.all()
 
-      for c in courses:
-         try:
-               p = int(c.price) if c.price and c.price.isdigit() else None
-               if p is not None:
-                  prices.append(p)
-         except Exception:
-               pass
-         try:
-               h = int(c.duration_in_hours) if c.duration_in_hours and c.duration_in_hours.isdigit() else None
-               if h is not None:
-                  hours_list.append(h)
-         except Exception:
-               pass
-         if c.format:
-               formats_count[c.format] = formats_count.get(c.format, 0) + 1
-         if c.course_type:
-               types_count[c.course_type] = types_count.get(c.course_type, 0) + 1
-
-      if prices:
-         avg_price = int(sum(prices) / len(prices))
-         sorted_prices = sorted(prices)
-         n = len(sorted_prices)
-         if n % 2 == 0:
-               median_price = int((sorted_prices[n // 2 - 1] + sorted_prices[n // 2]) / 2)
-         else:
-               median_price = sorted_prices[n // 2]
-      else:
-         avg_price = median_price = 0
-
-      avg_hours = int(sum(hours_list) / len(hours_list)) if hours_list else 0
-
-      top_format = max(formats_count, key=formats_count.get) if formats_count else '—'
-      top_format_pct = int(formats_count[top_format] / len(courses) * 100) if formats_count else 0
-      other_formats = [(k, int(v / len(courses) * 100)) for k, v in sorted(formats_count.items(), key=lambda x: -x[1]) if k != top_format]
-
-      top_type = max(types_count, key=types_count.get) if types_count else '—'
-      top_type_pct = int(types_count[top_type] / len(courses) * 100) if types_count else 0
-      other_types = [(k, int(v / len(courses) * 100)) for k, v in sorted(types_count.items(), key=lambda x: -x[1]) if k != top_type]
-
-      analytics = {
-         'count': len(courses),
-         'avg_price': avg_price,
-         'median_price': median_price,
-         'avg_hours': avg_hours,
-         'top_format': top_format,
-         'top_format_pct': top_format_pct,
-         'other_formats': other_formats[:3],
-         'top_type': top_type,
-         'top_type_pct': top_type_pct,
-         'other_types': other_types[:3],
-         'all_formats': list(formats_count.keys()),
-         'all_types': list(types_count.keys()),
-      }
+   analytics = build_analytics(courses) if courses else {}
 
    selected_cat_name = ''
    if selected_subcategory and selected_subcategory.isdigit():
@@ -433,14 +470,26 @@ def creator():
       if cat:
          selected_cat_name = cat.name
 
+   # Глобальные форматы и типы из всей базы (не только из текущей категории)
+   global_formats = sorted(set(
+      c.format for c in Course.query.with_entities(Course.format).filter(Course.format != None).all()
+      if c.format and c.format.strip()
+   ))
+   global_types = sorted(set(
+      c.course_type for c in Course.query.with_entities(Course.course_type).filter(Course.course_type != None).all()
+      if c.course_type and c.course_type.strip()
+   ))
+
    return render_template('creator.html',
-                        current_user=current_user,
-                        categories=categories,
-                        courses=courses,
-                        analytics=analytics,
-                        selected_category=selected_category,
-                        selected_subcategory=selected_subcategory,
-                        selected_cat_name=selected_cat_name)
+                          current_user=current_user,
+                          categories=categories,
+                          courses=courses,
+                          analytics=analytics,
+                          selected_category=selected_category,
+                          selected_subcategory=selected_subcategory,
+                          selected_cat_name=selected_cat_name,
+                          global_formats=global_formats,
+                          global_types=global_types)
 
 
 # ─────────────────────────────────────────────
@@ -463,7 +512,7 @@ def drafts():
 
    draft_courses = query.all()
    return render_template('drafts.html', drafts=draft_courses, current_user=current_user,
-                        search_query=search_query)
+                          search_query=search_query)
 
 
 @app.route('/drafts/create', methods=['POST'])
@@ -474,15 +523,27 @@ def create_draft():
 
    data = request.get_json()
 
+   cat_id = data.get('category_id')
+   sub_id = data.get('subcategory_id')
+
    draft = DraftCourse(
       title=data.get('title') or 'Без названия',
-      price=data.get('price'),
-      format=data.get('format'),
-      course_type=data.get('course_type'),
-      duration_in_hours=data.get('duration_in_hours'),
-      duration=data.get('duration'),
-      schedule=data.get('schedule'),
+      price=data.get('price') or None,
+      format=data.get('format') or None,
+      course_type=data.get('course_type') or None,
+      duration_in_hours=data.get('duration_in_hours') or None,
+      duration=data.get('duration') or None,
+      schedule=data.get('schedule') or None,
+      date=data.get('date') or None,
       language='Русский',
+      description=data.get('description') or None,
+      competitiveness_score=data.get('competitiveness_score') or None,
+      has_document=bool(data.get('has_document')),
+      has_installment=bool(data.get('has_installment')),
+      has_date=bool(data.get('has_date')),
+      notes=data.get('notes') or None,
+      category_id=int(cat_id) if cat_id else None,
+      subcategory_id=int(sub_id) if sub_id else None,
    )
    db.session.add(draft)
    db.session.flush()
@@ -492,6 +553,79 @@ def create_draft():
    db.session.commit()
 
    return jsonify({'success': True, 'draft_id': draft.id})
+
+
+@app.route('/draft/edit/<int:id>', methods=['GET'])
+def draft_edit(id):
+   current_user = get_current_user()
+   if not current_user:
+      return redirect(url_for('index'))
+
+   draft = DraftCourse.query.get_or_404(id)
+   link = UserDraft.query.filter_by(user_id=current_user.id, draft_course_id=id).first()
+   if not link:
+      return redirect(url_for('drafts'))
+
+   categories = get_categories_with_subcats()
+
+   global_formats = sorted(set(
+      c.format for c in Course.query.with_entities(Course.format).filter(Course.format != None).all()
+      if c.format and c.format.strip()
+   ))
+   global_types = sorted(set(
+      c.course_type for c in Course.query.with_entities(Course.course_type).filter(Course.course_type != None).all()
+      if c.course_type and c.course_type.strip()
+   ))
+
+   return render_template('edit.html',
+                          draft=draft,
+                          current_user=current_user,
+                          categories=categories,
+                          global_formats=global_formats,
+                          global_types=global_types)
+
+
+@app.route('/draft/update/<int:id>', methods=['POST'])
+def draft_update(id):
+   current_user = get_current_user()
+   if not current_user:
+      return jsonify({'success': False, 'error': 'Не авторизован'})
+
+   link = UserDraft.query.filter_by(user_id=current_user.id, draft_course_id=id).first()
+   if not link:
+      return jsonify({'success': False, 'error': 'Доступ запрещён'})
+
+   draft = DraftCourse.query.get_or_404(id)
+   data = request.get_json()
+
+   if data.get('title'):
+      draft.title = data['title']
+   cat_id = data.get('category_id')
+   sub_id = data.get('subcategory_id')
+   if cat_id is not None:
+      draft.category_id = int(cat_id) if cat_id else None
+   if sub_id is not None:
+      draft.subcategory_id = int(sub_id) if sub_id else None
+   draft.price               = data.get('price') or None 
+   draft.format              = data.get('format') or None
+   draft.course_type         = data.get('course_type') or None
+   draft.duration_in_hours   = data.get('duration_in_hours') or None
+   draft.duration            = data.get('duration') or None
+   draft.schedule            = data.get('schedule') or None
+   draft.date                = data.get('date') or None
+   draft.description         = data.get('description') or None
+   draft.admission_requirements = data.get('admission_requirements') or None
+   draft.language            = data.get('language') or 'Русский'
+   draft.document            = data.get('document') or None
+   draft.has_document        = bool(data.get('has_document'))
+   draft.has_installment     = bool(data.get('has_installment'))
+   draft.has_date            = bool(data.get('has_date'))
+   draft.notes               = data.get('notes') or None
+   if data.get('competitiveness_score') is not None:
+      draft.competitiveness_score = data.get('competitiveness_score')
+
+   db.session.commit()
+   return jsonify({'success': True})
 
 
 @app.route('/drafts/delete/<int:id>', methods=['POST'])
@@ -525,12 +659,12 @@ def delete_param(params, param_name, param_value):
       if isinstance(values, list):
          new_values = [v for v in values if v != param_value]
          if new_values:
-               new_params[param_name] = new_values
+            new_params[param_name] = new_values
          else:
-               del new_params[param_name]
+            del new_params[param_name]
       else:
          if values == param_value:
-               del new_params[param_name]
+            del new_params[param_name]
    return new_params
 
 

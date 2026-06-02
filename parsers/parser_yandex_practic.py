@@ -8,22 +8,121 @@ from db_functions import (
    get_or_create_specialization,
    link_course_specialization
 )
-from helpers import (
-   clean_text,
-   get_html_with_playwright_selector
-)
 import random
+from playwright.sync_api import sync_playwright
 
 # ---------------------------------------------------------------------------
 # Настройки
 # ---------------------------------------------------------------------------
 BASE_URL = "https://practicum.yandex.ru"
 CATALOG_URL = "https://practicum.yandex.ru/catalog/"
-HEADERS = {"User-Agent": "Mozilla/5.0"}
-ORGANIZATION_ID = 8  #####klvnbdxfbdlfkjg;dfsj'gjbf;gldfbgldsfng ldfb
-DELAY = random.randint(5, 7) 
+HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36"}
+
+ORGANIZATION_ID = 8  
 DB_NAME = "buff_dpo_db"
 
+# ---------------------------------------------------------------------------
+# Браузер
+# ---------------------------------------------------------------------------
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+]
+
+class BrowserManager:
+   def __init__(self):
+
+      self.playwright = sync_playwright().start()
+
+      self.browser = self.playwright.chromium.launch(
+         headless=False,
+         slow_mo=random.randint(50, 150),
+         args=[
+               "--disable-blink-features=AutomationControlled",
+               "--disable-dev-shm-usage",
+               "--no-sandbox",
+         ]
+      )
+
+      self.context = self.browser.new_context(
+         user_agent=random.choice(USER_AGENTS),
+         locale="ru-RU",
+         timezone_id="Europe/Moscow",
+         viewport={
+               "width": random.randint(770, 800),
+               "height": random.randint(580, 600)
+         }
+      )
+
+      self.page = self.context.new_page()
+
+      # Скрываем webdriver
+      self.page.add_init_script("""
+      Object.defineProperty(navigator, 'webdriver', {
+         get: () => undefined
+      });
+      window.chrome = {
+         runtime: {}
+      };
+      Object.defineProperty(navigator, 'languages', {
+         get: () => ['ru-RU', 'ru']
+      });
+      Object.defineProperty(navigator, 'plugins', {
+         get: () => [1, 2, 3]
+      });
+      """)
+
+   def human_delay(self, a=1.5, b=2.5):
+      time.sleep(random.uniform(a, b))
+
+   def simulate_human(self):
+      self.page.mouse.move(
+         random.randint(100, 600),
+         random.randint(100, 500),
+         steps=random.randint(10, 30)
+      )
+      self.human_delay(0.5, 1.5)
+      self.page.mouse.wheel(
+         0,
+         random.randint(300, 1500)
+      )
+      self.human_delay(1, 2)
+
+   def get_html(self, url):
+      self.page.goto(
+         url,
+         wait_until="domcontentloaded",
+         timeout=60000
+      )
+      self.human_delay(1, 3)
+      self.simulate_human()
+      # Проверка капчи
+      current_url = self.page.url.lower()
+      html = self.page.content().lower()
+      if "captcha" in current_url or "captcha" in html:
+         print("КАПЧА ОБНАРУЖЕНА")
+         print("РЕШИ КАПЧУ ВРУЧНУЮ")
+         input("Нажми ENTER после решения капчи...")
+         try:
+            self.page.wait_for_load_state(
+               "networkidle",
+               timeout=60000
+            )
+         except:
+            pass
+         self.human_delay(1, 3)
+         # иногда Яндекс еще делает догрузку
+         time.sleep(random.uniform(2, 5))
+      return self.page.content()
+
+   def close(self):
+
+      self.context.storage_state(path="state.json")
+
+      self.browser.close()
+      self.playwright.stop()
 
 # ---------------------------------------------------------------------------
 # Утилиты
@@ -49,19 +148,35 @@ def extract_duration(footer_text: str):
    return None
 
 
-def extract_price_from_text(text: str):
-   """
-   Извлекает целое число рублей из строки вида:
-   'на 36 месяцев или 105 000 ₽ одним платежом...'
-   Возвращает строку с числом (без пробелов) или None.
-   """   
-   text = clean_text(text)   
-   # Ищем число перед знаком ₽ (с пробелами внутри числа)
+def extract_price_from_text(text):
+   if not text:
+      return None
+   text = str(text)
+   text = clean_text(text)
+   if not text:
+      return None
    match = re.search(r"([\d][\d\s]*)\s*₽", text)
    if match:
       number = re.sub(r"\s", "", match.group(1))
       return number
+
    return None
+
+
+def clean_text(tag) -> str:
+   """Очищает текст из BeautifulSoup тега или строки"""
+   if tag is None:
+      return ""
+   # Если передана строка
+   if isinstance(tag, str):
+      text = tag
+   else:
+      # Если передан тег BeautifulSoup
+      text = tag.get_text(separator=" ", strip=True)
+   # Нормализуем пробелы
+   text = re.sub(r"[\u00a0\s]+", " ", text).strip()
+   text = text.replace("&nbsp;", " ")
+   return text
 
 # ---------------------------------------------------------------------------
 # Парсинг главной страницы каталога
@@ -115,6 +230,9 @@ def parse_catalog(html: str) -> list:
       duration = None
       if footer_div:
          duration = extract_duration(footer_div.get_text())
+         
+      if price == "0":
+         duration = "1 день"
 
       courses.append({
          "url": url_clean,
@@ -126,38 +244,14 @@ def parse_catalog(html: str) -> list:
 
    return courses
 
-
 # ---------------------------------------------------------------------------
 # Парсинг страницы курса
 # ---------------------------------------------------------------------------
-def parse_course_page(url: str, html: str, card_data: dict) -> dict:
-     
+def parse_course_page(url: str, html: str, card_data: dict, browser: BrowserManager) -> dict:
+   
+   html = browser.get_html(url)
+   
    soup = BeautifulSoup(html, "html.parser")
-   
-   html = get_html_with_playwright_selector(url, "span.common-flow-price__message")  # НАДО попробовать убрать селектор
-   soup = BeautifulSoup(html, "html.parser")
-   
-   
-   
-   # if needs_playwright(soup, url):
-   #    print(f" [DEBUG] Страница динамическая, использую Playwright...")
-   #    html = get_html_with_playwright(url, "span.common-flow-price__message")
-   #    soup = BeautifulSoup(html, "html.parser")
-   # else:
-   #    print(f" [WARN] Страница требует JS, но Playwright отключён")
-   #    soup = BeautifulSoup(html, "html.parser")
-   # Сначала проверяем, есть ли в HTML элемент заглушки цены. 
-   # has_loading = soup.find(class_=lambda c: c and (
-   #    "common-flow-card_loading" in c or 
-   #    "prisma-skeleton" in c
-   # ) if c else False)
-   # if has_loading:
-   #       print(" [DEBUG] Обнаружена заглушка, запускаю Playwright...")
-   #       html = get_html_with_playwright(url,"пофик")
-   #       soup = BeautifulSoup(html, "html.parser")
-   # else:
-   #    print(" [DEBUG] Цена уже в HTML, Playwright не нужен")
-   
 
    course = {
       "organization_id": ORGANIZATION_ID,
@@ -178,15 +272,11 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       "specialization_names": list(card_data.get("specialization_names", [])),
    }
 
-   # -------------------------------------------------------------------
    # Description
-   # -------------------------------------------------------------------
-   # Вариант 1: head-section__duration
    desc_div = soup.find("div", class_="head-section__duration")
    if desc_div:
       course["description"] = clean_text(desc_div.get_text())
 
-   # Вариант 2: lc-grid2-item → first-description section → lc-styled-text__text
    if course["description"] == "Не указано":
       first_desc_section = soup.find("section", id="first-description")
       if first_desc_section:
@@ -194,10 +284,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
          if text_div:
                course["description"] = clean_text(text_div.get_text())
 
-   # -------------------------------------------------------------------
-   # Date: ищем "Ближайший старт —"
-   # -------------------------------------------------------------------
-   # Вариант 1: .squad-surge-info span
+   # Date
    surge_div = soup.find("div", class_="squad-surge-info")
    if surge_div:
       span = surge_div.find("span")
@@ -209,7 +296,6 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                if len(parts) > 1:
                   course["date"] = parts[1].strip()
 
-   # Вариант 2: p.squad-dates
    if course["date"] == "Не указана":
       squad_dates = soup.find("p", class_="squad-dates")
       if squad_dates:
@@ -219,14 +305,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                if len(parts) > 1:
                   course["date"] = parts[1].strip()
 
-   # -------------------------------------------------------------------
-   # Document & course_type
-   # Ищем маркеры в порядке приоритета:
-   # 1. bullets-block (шапка курса) — самый надёжный источник
-   # 2. paragraph-блоки в теле страницы (но не в FAQ)
-   # 3. lc-styled-text__text — маркеры "Ваш диплом" / "Ваше свидетельство"
-   # -------------------------------------------------------------------
-
+   # Document и course_type
    def _find_doc_in_container(container) -> tuple:
       """Возвращает (document, course_type) или (None, None)."""
       text = clean_text(container.get_text(" "))
@@ -235,19 +314,19 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       if re.search(r"[Уу]достоверение\s+о\s+повышении\s+квалификации", text):
          return "Удостоверение о повышении квалификации", "Повышение квалификации"
       if re.search(r"[Вв]аш\s+диплом\s+после\s+обучения", text):
-         return "Диплом после обучения", None
+         return "Диплом после обучения", "Курс"
       if re.search(r"[Вв]аше\s+свидетельство\s+об\s+обучении", text):
-         return "Свидетельство об обучении", None
+         return "Свидетельство об обучении", "Курс"
       return None, None
 
    doc, ctype = None, None
 
-   # Приоритет 1: bullets-block в шапке
+   # bullets-block в шапке
    bullets_block = soup.find("ul", class_=lambda c: c and "bullets-block" in c)
    if bullets_block:
       doc, ctype = _find_doc_in_container(bullets_block)
 
-   # Приоритет 2: paragraph-блоки (только те, что содержат слово "Выдадим" / "Получите")
+   # paragraph-блоки (только те, что содержат слово "Выдадим" / "Получите")
    if not doc:
       for para in soup.find_all("div", class_="paragraph"):
          text = clean_text(para.get_text())
@@ -258,7 +337,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                doc, ctype = "Удостоверение о повышении квалификации", "Повышение квалификации"
                break
 
-   # Приоритет 3: lc-styled-text__text — для маркеров "Ваш диплом" / "Ваше свидетельство"
+   # lc-styled-text__text — для маркеров "Ваш диплом" / "Ваше свидетельство"
    if not doc:
       for styled in soup.find_all("div", class_=lambda c: c and "lc-styled-text__text" in c):
          text = clean_text(styled.get_text())
@@ -269,8 +348,6 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                doc = "Свидетельство об обучении"
                break
 
-   # Приоритет 4: на странице явно есть "свидетельство об обучении" как основной документ
-   # (ищем только в первых 5 FAQ-ответах, которые говорят о документах)
    if not doc:
       for styled in soup.find_all("div", class_=lambda c: c and "lc-styled-text__text" in c):
          text = clean_text(styled.get_text())
@@ -281,16 +358,15 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    course["document"] = doc
    course["course_type"] = ctype
 
-   # -------------------------------------------------------------------
-   # Price (если ещё не установлена — price != "0")
-   # -------------------------------------------------------------------
+
+   # Price
    if course["price"] is None:
        
-      # Вариант 1: common-flow__row_tariff → первая карточка displayed → common-flow-price__message
+      # common-flow__row_tariff → первая карточка displayed → common-flow-price__message
       tariff_row = soup.find("ul", class_=lambda c: c and "common-flow__row_tariff" in c)
       
       if tariff_row:
-         # Берём первую li.common-flow-card с классом displayed
+         # первую li.common-flow-card с классом displayed
          first_card = tariff_row.find(
                "li",
                class_=lambda c: c and "common-flow-card" in c and "common-flow-card_plus" not in c
@@ -299,25 +375,23 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                first_card = tariff_row.find("li", class_=lambda c: c and "common-flow-card" in c)
 
          if first_card:
-               # Вариант 1a: common-flow-price__message
+               # common-flow-price__message
                price_msg = first_card.find("span", class_="common-flow-price__message")
                if price_msg:
                   course["price"] = extract_price_from_text(price_msg.get_text())
          
          if first_card:
-               # Вариант 1a: common-flow-price__message
+               # common-flow-price__message
                price_msg = first_card.find("span", class_="common-flow-price__message")
                if price_msg:
                   price_text = price_msg.get_text()
                   course["price"] = extract_price_from_text(price_text)
-
-               # Вариант 1b: price-overall
+               # price-overall
                if course["price"] is None:
                   price_overall = first_card.find("span", class_="price-overall")
                   if price_overall:
                      course["price"] = extract_price_from_text(price_overall.get_text())
-
-               # Вариант 1c: price_description
+               # price_description
                if course["price"] is None:
                   price_desc = first_card.find("div", class_="price_description")
                   if price_desc:
@@ -325,61 +399,20 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    return course
 
 
-# ---------------------------------------------------------------------------
-# Точка входа
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------------
+# ОСНОВНАЯ ФУНКЦИЯ
+# -------------------------------------------------------------------
 def main_yandex_practic(DB_NAME):
+   browser = BrowserManager()
    db_name = DB_NAME
    print("=== Парсер Яндекс Практикум ===\n")
 
    print("Шаг 1: Загружаю каталог курсов...")
-   try:
-      resp = requests.get(CATALOG_URL, headers=HEADERS, timeout=30)
-      resp.raise_for_status()
-   except requests.RequestException as e:
-      print(f"Ошибка загрузки каталога: {e}")
-      return
-
-   cards_data = parse_catalog(resp.text)
    
-   # cards_data = [
-   #    {
-   #       "url": "https://practicum.yandex.ru/project-manager/", # Ломается
-   #       "title": "Менеджер проектов",
-   #       "price": None,
-   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
-   #       "specialization_names": ["Менеджмент"]
-   #    },
-   #    {
-   #       "url": "https://practicum.yandex.ru/product-manager-start/", # Ломается
-   #       "title": "ЧМенеджер продукта",
-   #       "price": None,
-   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
-   #       "specialization_names": ["Менеджмент"]
-   #    },
-   #    {
-   #       "url": "https://start.practicum.yandex/start-in-marketing/", # стоит 0
-   #       "title": "Какую профессию выбрать в маркетинге",
-   #       "price": None,  
-   #       "duration": "Зuufudsuufsdufsdufusй не нужно писать код",
-   #       "specialization_names": ["куда податься"]
-   #    },
-   #    {
-   #       "url": "https://practicum.yandex.ru/interface-designer/", # Не ломается
-   #       "title": "Дизайнер интерфейсов",
-   #       "price": None,
-   #       "duration": "oiweorhwkfbsdjfklsdk нужно писать код",
-   #       "specialization_names": ["Дизайн"]
-   #    },
-   #    {
-   #       "url": "https://practicum.yandex.ru/1c-programmer/", # Ломается
-   #       "title": "Разработчик 1С",
-   #       "price": None,
-   #       "duration": "За 6 АХАХАХАХАХАХАХАХАХАХАХАХААХА",
-   #       "specialization_names": ["Программирование"]
-   #    },
-   # ]
-
+   html = browser.get_html(CATALOG_URL)
+   cards_data = parse_catalog(html)
+   
+   
    print(f"Найдено курсов в каталоге: {len(cards_data)}\n")
 
    conn = get_connection(db_name)
@@ -395,6 +428,7 @@ def main_yandex_practic(DB_NAME):
    saved = 0
    skipped = 0
    errors = 0
+   
 
    print("Шаг 2: Обрабатываю каждый курс...\n")
    for i, card_data in enumerate(cards_data, 1):
@@ -410,7 +444,7 @@ def main_yandex_practic(DB_NAME):
          continue
 
       try:
-         course = parse_course_page(url, resp.text, card_data)
+         course = parse_course_page(url, resp.text, card_data, browser)
 
          # Готовим dict для INSERT (только нужные поля)
          db_course = {
@@ -453,7 +487,7 @@ def main_yandex_practic(DB_NAME):
          print(f"ошибка парсинга: {e}")
          errors += 1
 
-      time.sleep(DELAY)
+      time.sleep(random.uniform(2, 4))
 
    cursor.close()
    conn.close()
@@ -467,3 +501,41 @@ def main_yandex_practic(DB_NAME):
 if __name__ == "__main__":
    main_yandex_practic(DB_NAME)
    
+   
+   # cards_data = [
+   #    {
+   #       "url": "https://practicum.yandex.ru/project-manager/", # Ломается
+   #       "title": "Менеджер проектов",
+   #       "price": None,
+   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
+   #       "specialization_names": ["Менеджмент"]
+   #    },
+   #    {
+   #       "url": "https://practicum.yandex.ru/product-manager-start/", # Ломается
+   #       "title": "ЧМенеджер продукта",
+   #       "price": None,
+   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
+   #       "specialization_names": ["Менеджмент"]
+   #    },
+   #    {
+   #       "url": "https://start.practicum.yandex/start-in-marketing/", # стоит 0
+   #       "title": "Какую профессию выбрать в маркетинге",
+   #       "price": None,  
+   #       "duration": "Зuufudsuufsdufsdufusй не нужно писать код",
+   #       "specialization_names": ["куда податься"]
+   #    },
+   #    {
+   #       "url": "https://practicum.yandex.ru/interface-designer/", # Не ломается
+   #       "title": "Дизайнер интерфейсов",
+   #       "price": None,
+   #       "duration": "oiweorhwkfbsdjfklsdk нужно писать код",
+   #       "specialization_names": ["Дизайн"]
+   #    },
+   #    {
+   #       "url": "https://practicum.yandex.ru/1c-programmer/", # Ломается
+   #       "title": "Разработчик 1С",
+   #       "price": None,
+   #       "duration": "За 6 АХАХАХАХАХАХАХАХАХАХАХАХААХА",
+   #       "specialization_names": ["Программирование"]
+   #    },
+   # ]

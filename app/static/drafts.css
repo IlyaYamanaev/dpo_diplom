@@ -1,0 +1,195 @@
+/* --------------------------- */
+/*       Черновики             */
+/* --------------------------- */
+.page-heading {
+   font-size: 28px;
+   font-weight: 800;
+   color: #2c3036;
+   margin-bottom: 20px;
+}
+
+/* Перебиваем серый градиент на белый фон для структурной карточки */
+.draft-card {
+   background: #fafafa ;
+   /* background: linear-gradient(135deg, #042ad1 0%, #001ea1 100%); */
+   color: #111827 ;
+   padding: 0 ;
+   display: flex ;
+   flex-direction: column ;
+}
+
+/* Шапка карточки: бейдж + баллы */
+.dc-header {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   padding: 10px 14px 9px;
+   border-bottom: 1px solid #f3f4f6;
+   background: #fafafa;
+   border-radius: 12px 12px 0 0;
+}
+
+.draft-badge-card {
+   font-size: 15px;
+   font-weight: 600;
+}
+
+.dc-score {
+   display: inline-flex;
+   align-items: center;
+   gap: 4px;
+   background: #eaeaef65;
+   border: 1px solid;
+   border-radius: 20px;
+   padding: 3px 10px;
+   font-size: 12px;
+   font-weight: 700;
+}
+
+.dc-score-empty {
+   font-size: 11px;
+   color: #d1d5db;
+   font-style: italic;
+}
+
+/* Тело */
+.dc-body {
+   padding: 11px 14px 0;
+   flex: 1;
+}
+
+/* Теги */
+.dc-tags {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 4px;
+   margin-bottom: 7px;
+}
+
+.dc-tag {
+   font-size: 11px;
+   padding: 2px 8px;
+   border-radius: 6px;
+   background: #f3f4f6;
+   color: #374151;
+   border: 1px solid #e5e7eb;
+}
+
+.dc-tag.cat {
+   background: #eff6ff;
+   color: #1e40af;
+   border-color: #bfdbfe;
+}
+
+.dc-tag.doc {
+   background: #f0fdf4;
+   color: #166534;
+   border-color: #bbf7d0;
+}
+
+.dc-tag.inst {
+   background: #fefce8;
+   color: #713f12;
+   border-color: #fde68a;
+}
+
+/* Заголовок */
+.dc-title {
+   font-size: 23px;
+   font-weight: 700;
+   color: #111827;
+   line-height: 1.3;
+   margin-bottom: 10px;
+}
+
+/* Разделитель */
+.dc-sep {
+   height: 1px;
+   background: #f3f4f6;
+   margin: 0 -14px;
+   margin-top: 50px;
+}
+
+/* Метрики — каждая с новой строки */
+.dc-metrics {
+   padding: 20px 0 2px;
+}
+
+.dc-metric-row {
+   display: flex;
+   justify-content: space-between;
+   align-items: baseline;
+   padding: 3px 0;
+   font-size: 12px;
+   border-bottom: 1px solid #f9fafb;
+}
+
+.dc-metric-row:last-child {
+   border-bottom: none;
+}
+
+.dc-metric-label {
+   color: #7e828a;
+   font-weight: 500;
+   font-size: 13px;
+
+}
+
+.dc-metric-value {
+   font-weight: 600;
+   font-size: 13px;
+   color: #2b313b;
+}
+
+.dc-metric-value.price {
+   font-size: 14px;
+   font-weight: 700;
+   color: #111827;
+}
+
+/* Дата создания */
+.dc-created {
+   padding: 5px 14px 8px;
+   font-size: 11px;
+   color: #9ca3af;
+}
+
+/* Кнопки */
+.dc-actions {
+   display: flex;
+   gap: 8px;
+   padding: 0 14px 13px;
+}
+
+.dc-btn-edit {
+   flex: 1;
+   text-align: center;
+   padding: 8px 12px;
+   background: #5b82c2;
+   color: #fff;
+   border-radius: 8px;
+   font-size: 13px;
+   font-weight: 600;
+   text-decoration: none;
+   transition: opacity .18s;
+}
+
+.dc-btn-edit:hover {
+   opacity: .88;
+}
+
+.dc-btn-del {
+   padding: 8px 12px;
+   background: #c9252544;
+   border: 1.5px solid #fca5a5;
+   color: #dc2626;
+   border-radius: 8px;
+   font-size: 13px;
+   font-weight: 1000;
+   cursor: pointer;
+   transition: background .18s;
+}
+
+.dc-btn-del:hover {
+   background: #b0515188;
+}

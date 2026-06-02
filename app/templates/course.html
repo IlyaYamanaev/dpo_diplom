@@ -77,6 +77,13 @@
 
       {% if course.language %}
       <div class="info-card">
+         <div class="info-card__label">Дата начала</div>
+         <div class="info-card__value">{{ course.date }}</div>
+      </div>
+      {% endif %}
+
+      {% if course.language %}
+      <div class="info-card">
          <div class="info-card__label">Язык</div>
          <div class="info-card__value">{{ course.language }}</div>
       </div>

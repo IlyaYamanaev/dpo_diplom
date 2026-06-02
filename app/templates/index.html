@@ -121,7 +121,7 @@
                <div class="range-input-group">
                   <label>от</label>
                   <input type="number" name="price_min" value="{{ current_price_min }}" placeholder="{{ min_price }}"
-                     min="{{ min_price }}" max="{{ max_price }}" step="1000">
+                     min="{{ min_price }}" max="{{ max_price }}" step="10">
                </div>
                <span class="range-sep"></span>
                <div class="range-input-group">
@@ -167,7 +167,70 @@
       </div>
    </div>
 
+   <!-- Фильтр по дате -->
+   <div class="dpob-filter">
+      <div class="dpob-filter__field" onclick="toggleFilter(this)">
+         <span>Дата начала</span>
+         <span class="icon">+</span>
+      </div>
+      <div class="dpob-filter__content">
+         <label>
+            <input type="checkbox" name="date_option" value="no_date"
+               {% if 'no_date' in request.args.getlist('date_option') %}checked{% endif %}>
+               Нет даты
+         </label>
+         <label>
+            <input type="checkbox" name="date_option" value="has_date"
+               {% if 'has_date' in request.args.getlist('date_option') %}checked{% endif %}>
+            Дата указана
+         </label>
+         <label>
+            <input type="checkbox" name="date_option" value="past"
+               {% if 'past' in request.args.getlist('date_option') %}checked{% endif %}>
+               Дата прошла
+            </label>
+            <label>
+               <input type="checkbox" name="date_option" value="2weeks"
+               {% if '2weeks' in request.args.getlist('date_option') %}checked{% endif %}>
+               Ближайшие 2 недели
+            </label>
+            <label>
+               <input type="checkbox" name="date_option" value="1month"
+               {% if '1month' in request.args.getlist('date_option') %}checked{% endif %}>
+               Ближайший месяц
+            </label>
+            <label>
+               <input type="checkbox" name="date_option" value="3months"
+               {% if '3months' in request.args.getlist('date_option') %}checked{% endif %}>
+               Ближайшие 3 месяца
+            </label>
+            <label>
+               <input type="checkbox" name="date_option" value="6months"
+               {% if '6months' in request.args.getlist('date_option') %}checked{% endif %}>
+               Ближайшие 6 месяцев
+            </label>
+         </div>
+      </div>
+   </div>
+      
+   
+   <!-- Сортировки и кнопки -->
    <div class="filter-actions">
+      <div class="sort-dropdown">
+         <div class="custom-select">
+            <select name="sort" onchange="this.form.submit()" class="sort-select">
+               <option value="" {% if not request.args.get('sort') %}selected{% endif %}>По умолчанию</option>
+               <option value="title_asc" {% if request.args.get('sort') == 'title_asc' %}selected{% endif %}>От А до Я</option>
+               <option value="title_desc" {% if request.args.get('sort') == 'title_desc' %}selected{% endif %}>От Я до А</option>
+               <option value="price_asc" {% if request.args.get('sort') == 'price_asc' %}selected{% endif %}>Сначала дешевле</option>
+               <option value="price_desc" {% if request.args.get('sort') == 'price_desc' %}selected{% endif %}>Сначала дороже</option>
+               <option value="hours_asc" {% if request.args.get('sort') == 'hours_asc' %}selected{% endif %}>Сначала короткие (по часам)</option>
+               <option value="hours_desc" {% if request.args.get('sort') == 'hours_desc' %}selected{% endif %}>Сначала длинные (по часам)</option>
+               <option value="date_asc" {% if request.args.get('sort') == 'date_asc' %}selected{% endif %}>Сначала ближайшие</option>
+            </select>
+            <div class="select-arrow"></div>
+         </div>
+      </div>
       <button type="submit">Применить фильтр</button>
       <a href="{{ url_for('index') }}" class="reset-btn">Сбросить все</a>
    </div>
@@ -221,7 +284,14 @@
 {% for v in request.args.getlist('hours_max') %}
    {% if v %}{% set _ = active_filters.append({'param': 'hours_max', 'value': v, 'label': 'Часы до ' ~ v}) %}{% endif %}
 {% endfor %}
+{% for v in request.args.getlist('date_option') %}
+   {% if v %}{% set labels = {'no_date': 'Нет даты','has_date': 'Дата указана','past': 'Дата прошла',
+         '2weeks': 'Ближайшие 2 недели','1month': 'Ближайший месяц','3months': 'Ближайшие 3 месяца',
+         '6months': 'Ближайшие 6 месяцев'} %}
+      {% set _ = active_filters.append({'param': 'date_option', 'value': v, 'label': 'Дата: ' ~ labels.get(v, v)}) %}{% endif %}
+{% endfor %}
 
+<!-- Выбранные фильтры -->
 {% if active_filters %}
 <div class="dpob-tags">
    <span class="dpob-tags__title">Выбранные фильтры:</span>
@@ -285,14 +355,16 @@
 
       <div class="course-bottom">
          <div class="bottom-left">
-            <div class="duration-text">{{ c.duration if c.duration else c.duration_in_hours }}</div>
+            <div class="date-text">{{ c.norm_date if c.norm_date else "Дата"}}</div>
+            <div class="duration-text">{{ c.duration if c.duration else "Не указана"}}</div>
             <div class="hours-text">
-               {% if c.duration_in_hours and c.duration_in_hours != 'Не указан' %}
+               {% if c.duration_in_hours %}
                {{ c.duration_in_hours }} ак.ч.
                {% else %}Не указана{% endif %}
             </div>
          </div>
          <div class="bottom-right">
+            <div class="format-text">{{ c.format if c.format else 'Онлайн' }}</div>
             <div class="course-type">{{ c.course_type if c.course_type else 'Курс' }}</div>
             <div class="price-large">
                {% if c.price and c.price != 'None' %}{{ c.price }} ₽{% else %}Отсутствует{% endif %}

@@ -1,0 +1,87 @@
+/* ----------------- */
+/* ── УВЕДОМЛЕНИЯ ── */
+/* ----------------- */
+.toast {
+   position: fixed;
+   bottom: 28px;
+   right: 28px;
+   background: #1f2937;
+   color: #fff;
+   padding: 12px 20px;
+   border-radius: 12px;
+   font-size: 14px;
+   font-weight: 500;
+   z-index: 999999;
+   opacity: 0;
+   transform: translateY(10px);
+   transition: all 0.3s ease;
+   pointer-events: none;
+}
+
+.toast.show {
+   opacity: 1;
+   transform: translateY(0);
+}
+
+/* Теги выбранных фильтров */
+.dpob-tags {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 23px;
+   margin-bottom: 25px;
+   padding: 12px 18px;
+   background: #afcee6;
+   border-radius: 16px;
+   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.dpob-tags__title {
+   font-size: 14px;
+   font-weight: 600;
+   color: #22262e;
+}
+
+.dpob-tags__inner {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+}
+
+.dpob-tag {
+   display: inline-flex;
+   align-items: center;
+   gap: 15px;
+   padding: 6px 12px;
+   background-color: #f4f4f5;
+   /* background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); */
+   border-radius: 13px;
+   font-size: 13px;
+   color: #1f2937;
+   text-decoration: none;
+   transition: all 0.2s ease;
+}
+
+.dpob-tag:hover {
+   background: linear-gradient(135deg, #667eea25 0%, #764ba225 100%);
+   transform: translateY(-1px);
+}
+
+.dpob-tag__close {
+   width: 14px;
+   height: 14px;
+   opacity: 0.6;
+}
+
+.dpob-tag:hover .dpob-tag__close {
+   opacity: 1;
+}
+
+.dpob-tag-clear {
+   background: #f3f4f6;
+   color: #ef4444;
+}
+
+.dpob-tag-clear:hover {
+   background: #fee2e2;
+}

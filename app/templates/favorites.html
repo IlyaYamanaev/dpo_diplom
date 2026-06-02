@@ -29,12 +29,16 @@
 </div>
 
 {% if courses %}
+<!-- Карточки -->
 <div class="cards">
    {% for c in courses %}
-   <div class="card org-{{c.organization_id}}" id="card-{{c.id}}">
-      <button class="fav-btn fav-active"
-              onclick="removeFavorite({{c.id}}, this)"
-              title="Убрать из избранного">❤</button>
+   <div class="card org-{{c.organization_id}}">
+      <!-- Сердечко -->
+      <button class="fav-btn {% if c.id in favorite_ids %}fav-active{% endif %}"
+              onclick="toggleFavorite({{c.id}}, this)"
+              title="{% if c.id in favorite_ids %}Убрать из избранного{% else %}Добавить в избранное{% endif %}">
+         {% if c.id in favorite_ids %}❤{% else %}♡{% endif %}
+      </button>
 
       <div class="org-name">{{ c.organization.name if c.organization else '—' }}</div>
 
@@ -54,23 +58,24 @@
 
       <div class="course-bottom">
          <div class="bottom-left">
-            <div class="duration-text">{{ c.duration if c.duration else c.duration_in_hours }}</div>
+            <div class="date-text">{{ c.norm_date if c.norm_date else "Дата"}}</div>
+            <div class="duration-text">{{ c.duration if c.duration else "Не указана"}}</div>
             <div class="hours-text">
-               {% if c.duration_in_hours and c.duration_in_hours != 'Не указан' %}
+               {% if c.duration_in_hours %}
                {{ c.duration_in_hours }} ак.ч.
                {% else %}Не указана{% endif %}
             </div>
          </div>
          <div class="bottom-right">
+            <div class="format-text">{{ c.format if c.format else 'Онлайн' }}</div>
             <div class="course-type">{{ c.course_type if c.course_type else 'Курс' }}</div>
             <div class="price-large">
                {% if c.price and c.price != 'None' %}{{ c.price }} ₽{% else %}Отсутствует{% endif %}
             </div>
          </div>
       </div>
-
       <div class="card-btns">
-         <a class="btn-main" href="/course/{{c.id}}">Смотреть</a>
+         <a class="btn-main" href="/course/{{c.id}}" target="_blank" rel="noopener">Подробнее</a>
          {% if c.url %}
          <a class="btn-ext" href="{{ c.url }}" target="_blank" rel="noopener" title="Открыть на сайте организации">↗</a>
          {% endif %}

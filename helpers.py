@@ -21,17 +21,21 @@ def clean_text(tag) -> str | None:
     return text or None
 
 
-
+def truncate_string(s, max_len):
+    """Обрезает строку до max_len символов"""
+    if s and len(s) > max_len:
+        return s[:max_len]
+    return s
 
 
 def get_html_with_playwright(url: str) -> str:
    """Возвращает HTML страницы с ДЕЙСТВИТЕЛЬНОЙ ценой курса"""
    with sync_playwright() as p:
-      browser = p.chromium.launch(headless=True)  # headless=True для скрытого режима
+      browser = p.chromium.launch(headless=False)  # headless=True для скрытого режима
       page = browser.new_page()
       page.goto(url)
       
-      page.wait_for_timeout(9000)      
+      page.wait_for_timeout(12000)      
       
       html = page.content()
       browser.close()

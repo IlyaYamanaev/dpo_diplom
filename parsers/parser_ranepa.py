@@ -13,9 +13,9 @@ from db_functions import (
 )
 from helpers import clean_text, get_html_with_playwright_selector
 
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 # Настройки
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 CATALOG_URL = "https://www.ranepa.ru/catalog-dpo/#page="
 BASE_URL = "https://www.ranepa.ru"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
@@ -36,9 +36,9 @@ COURSE_TYPE_TO_DOCUMENT = {
 }
 
 
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 # Парсинг одной карточки из каталога
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 def parse_card(li_tag) -> dict:
    """
    Извлекает данные из одной карточки <li class="pp-dpo-program">.
@@ -56,7 +56,7 @@ def parse_card(li_tag) -> dict:
       "price": None,
    }
 
-   # --- Тип курса (badge) ---
+   # Тип курса (badge)
    badge = li_tag.find(
       "p",
       class_=lambda c: c and "pp-dpo-program__badge" in c and "badge--city" not in c,
@@ -65,7 +65,7 @@ def parse_card(li_tag) -> dict:
       badge_text = clean_text(badge.get_text())
       data["course_type"] = BADGE_TO_COURSE_TYPE.get(badge_text, badge_text)
 
-   # --- Специализации (через «•») ---
+   # Специализации
    tags_p = li_tag.find("p", class_="pp-dpo-program__tags-list")
    if tags_p:
       tags_text = clean_text(tags_p.get_text())
@@ -73,7 +73,7 @@ def parse_card(li_tag) -> dict:
          s.strip() for s in tags_text.split("•") if s.strip()
       ]
 
-   # --- Название ---
+   # Название
    title_tag = li_tag.find("h2", class_="pp-dpo-program__title")
    if title_tag:
       data["title"] = clean_text(title_tag.get_text())
@@ -82,7 +82,7 @@ def parse_card(li_tag) -> dict:
       if title_tag:
          data["title"] = clean_text(title_tag.get_text())
 
-   # --- info-list: часы, формат, дата, цена ---
+   # info-list: часы, формат, дата, цена
    for info in li_tag.find_all("li", class_="pp-dpo-program__info"):
       p_tag = info.find("p", class_="pp-dpo-program__info-text")
       text = clean_text(p_tag.get_text()) if p_tag else ""
@@ -102,7 +102,7 @@ def parse_card(li_tag) -> dict:
       ):
          data["format"] = text
 
-   # --- URL ---
+   # URL
    link_a = li_tag.find("a", class_="pp-dpo-program__link")
    if link_a:
       href = link_a.get("href", "").strip()
@@ -115,9 +115,9 @@ def parse_card(li_tag) -> dict:
    return data
 
 
-# ---------------------------------------------------------------------------
-# Пагинация каталога — сбор карточек со всех страниц
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
+# Пагинация каталога - сбор карточек со всех страниц
+#------------------------------------------------------------------------
 def collect_cards() -> list:
    """
    Обходит все страницы каталога через Playwright.
@@ -140,7 +140,7 @@ def collect_cards() -> list:
       cards_tags = soup.find_all("li", class_="pp-dpo-program")
 
       if not cards_tags:
-         print("нет карточек — стоп")
+         print("нет карточек - стоп")
          break
 
       page_cards = [parse_card(li) for li in cards_tags]
@@ -150,9 +150,9 @@ def collect_cards() -> list:
       print(f"найдено: {len(page_cards)}")
       all_cards.extend(page_cards)
 
-      # Если карточек меньше ожидаемого — скорее всего последняя страница
+      # Если карточек меньше ожидаемого - скорее всего последняя страница
       if len(cards_tags) < 10:
-         print("  Мало карточек — последняя страница")
+         print("  Мало карточек - последняя страница")
          break
 
       page_num += 1
@@ -161,9 +161,9 @@ def collect_cards() -> list:
    return all_cards
 
 
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 # Парсинг страницы курса (дополняет данные из карточки)
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    """
    Дополняет card_data данными со страницы курса:
@@ -201,7 +201,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
 
    main_container = soup.find("div", class_="pp-dpo-main__container") or soup
 
-   # --- Город → название подразделения ---
+   # название подразделения 
    tag_list = main_container.find("ul", class_="pp-dpo-main__tag-list")
    if tag_list:
       for li in tag_list.find_all("li"):
@@ -212,7 +212,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                   course["department_name"] = f"РАНХиГС {city}"
                   break
 
-   # --- Описание ---
+   # Описание
    desc_div = main_container.find("div", class_="pp-dpo-main__description")
    if desc_div:
       # Специализации из details-list (добавляем к тем что из карточки)
@@ -224,10 +224,10 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                   course["specialization_names"].append(det)
          details_ul.decompose()  # убираем из дерева, чтобы не попало в description
 
-      # Убираем h1 — title уже есть из карточки
+      # Убираем h1 - title уже есть из карточки
       h1 = desc_div.find("h1")
       if h1:
-         # Если title не был получен из карточки — берём отсюда
+         # Если title не был получен из карточки - берём отсюда
          if not course["title"]:
                course["title"] = clean_text(h1.get_text())
          h1.decompose()
@@ -240,7 +240,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       if parts:
          course["description"] = "\n".join(parts)
 
-   # --- Контакты программы ---
+   # Контакты программы
    contacts_div = soup.find("div", class_="pp-dpo-contacts__program")
    if contacts_div:
       dl = contacts_div.find("dl")
@@ -258,9 +258,9 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    return course
 
 
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 # Точка входа
-# ---------------------------------------------------------------------------
+#------------------------------------------------------------------------
 def main_ranepa(DB_NAME):
    
    db_name = DB_NAME
@@ -286,10 +286,10 @@ def main_ranepa(DB_NAME):
    print("Шаг 2: Обрабатываю страницы курсов...\n")
    for i, card_data in enumerate(cards_data, 1):
       url = card_data.get("url")
-      title = card_data.get("title", "—")
+      title = card_data.get("title", "-")
 
       if not url:
-         print(f"  [{i}/{len(cards_data)}] {title[:60]} — нет URL, пропуск")
+         print(f"  [{i}/{len(cards_data)}] {title[:60]} - нет URL, пропуск")
          skipped += 1
          continue
 
@@ -327,7 +327,7 @@ def main_ranepa(DB_NAME):
          course_id = save_course(cursor, db_course)
 
          if course_id is None:
-               print("дубликат — пропущен")
+               print("дубликат - пропущен")
                skipped += 1
                conn.commit()
                continue

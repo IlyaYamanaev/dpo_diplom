@@ -10,7 +10,6 @@
 
 <div class="page-heading">Мои черновики</div>
 
-<!-- Поиск -->
 <div class="search-container">
    <form method="GET" class="search-form">
       <div class="search-wrapper">
@@ -31,35 +30,88 @@
 {% if drafts %}
 <div class="cards">
    {% for d in drafts %}
-   <div class="card draft-card" id="draft-card-{{d.id}}">
-      <div class="draft-badge-card">ЧЕРНОВИК</div>
+   <div class="card draft-card" id="draft-card-{{ d.id }}">
 
-      <div class="org-name">Мой курс</div>
-      <div class="categories-dot"><span class="category-dot">Черновик</span></div>
-
-      <div class="course-title">{{ d.title }}</div>
-
-      <div class="spacer"></div>
-
-      <div class="course-bottom">
-         <div class="bottom-left">
-            <div class="duration-text">{{ d.duration if d.duration else '—' }}</div>
-            <div class="hours-text">
-               {% if d.duration_in_hours %}{{ d.duration_in_hours }} ак.ч.{% else %}—{% endif %}
-            </div>
-         </div>
-         <div class="bottom-right">
-            <div class="course-type">{{ d.course_type if d.course_type else 'Черновик' }}</div>
-            <div class="price-large">
-               {% if d.price %}{{ d.price }} ₽{% else %}—{% endif %}
-            </div>
-         </div>
+      <!-- Шапка: бейдж слева, баллы справа -->
+      <div class="dc-header">
+         <div class="draft-badge-card">ЧЕРНОВИК</div>
+         {% if d.competitiveness_score %}
+         <div class="dc-score"> {{ d.competitiveness_score }}/100</div>
+         {% else %}
+         <div class="dc-score-empty">оценка не задана</div>
+         {% endif %}
       </div>
 
-      <div class="card-btns">
-         <a class="btn-main" href="/draft/{{d.id}}">Смотреть</a>
-         <button class="btn-delete-draft" onclick="deleteDraft({{d.id}})" title="Удалить черновик">🗑</button>
+      <div class="dc-body">
+
+         <!-- Теги -->
+         <div class="dc-tags">
+            {% if d.category %}
+            <span class="dc-tag cat">{{ d.category.name }}</span>
+            {% endif %}
+            {% if d.subcategory %}
+            <span class="dc-tag cat">{{ d.subcategory.name }}</span>
+            {% endif %}
+            {% if d.has_document %}
+            <span class="dc-tag doc">Документ</span>
+            {% endif %}
+            {% if d.has_installment %}
+            <span class="dc-tag inst">Рассрочка</span>
+            {% endif %}
+            {% if d.has_date %}
+            <span class="dc-tag inst">Дата</span>
+            {% endif %}
+         </div>
+
+         <!-- Название -->
+         <div class="dc-title">{{ d.title }}</div>
+
+         <div class="dc-sep"></div>
+
+         <!-- Метрики — каждая с новой строки -->
+         <div class="dc-metrics">
+            <div class="dc-metric-row">
+               <span class="dc-metric-label">Формат</span>
+               <span class="dc-metric-value">{{ d.format if d.duration else '—' }}</span>
+            </div>
+            <div class="dc-metric-row">
+               <span class="dc-metric-label">Тип</span>
+               <span class="dc-metric-value">{{ d.course_type if d.duration else '—' }}</span>
+            </div>
+            <div class="dc-metric-row">
+               <span class="dc-metric-label">Длительность</span>
+               <span class="dc-metric-value">{{ d.duration if d.duration else '—' }}</span>
+            </div>
+            <div class="dc-metric-row">
+               <span class="dc-metric-label">Объём</span>
+               <span class="dc-metric-value">{% if d.duration_in_hours %}{{ d.duration_in_hours }} ак.ч.{% else %}—{% endif %}</span>
+            </div>
+            <div class="dc-metric-row">
+               <span class="dc-metric-label">Дата старта</span>
+               <span class="dc-metric-value">{{ d.date if d.date else '—' }}</span>
+            </div>
+            <div class="dc-metric-row">
+               <span class="dc-metric-label">Стоимость</span>
+               <span class="dc-metric-value price">{% if d.price %}{{ d.price }} ₽{% else %}—{% endif %}</span>
+            </div>
+         </div>
+
       </div>
+
+      <!-- Когда создан -->
+      <div class="dc-created">
+         Создан: {{ d.created_at.strftime('%d.%m.%Y %H:%M') if d.created_at else '—' }}
+         {% if d.updated_at and d.updated_at != d.created_at %}
+          · изменён {{ d.updated_at.strftime('%d.%m.%Y %H:%M') }}
+         {% endif %}
+      </div>
+
+      <!-- Кнопки -->
+      <div class="dc-actions">
+         <a class="dc-btn-edit" href="/draft/edit/{{ d.id }}"> Редактировать</a>
+         <button class="dc-btn-del" onclick="deleteDraft({{ d.id }})" title="Удалить"> Х </button>
+      </div>
+
    </div>
    {% endfor %}
 </div>
@@ -68,7 +120,7 @@
    {% if search_query %}
    <p>По запросу «{{ search_query }}» черновики не найдены.</p>
    {% else %}
-   <p>У вас пока нет черновиков. Создайте курс в режиме Создателя.</p>
+   <p>У вас пока нет черновиков. Создайте курс в <a href="{{ url_for('creator') }}" style="color:#6366f1;">режиме Создателя</a>.</p>
    {% endif %}
 </div>
 {% endif %}
@@ -76,7 +128,6 @@
 <script>
 async function deleteDraft(draftId) {
    if (!confirm('Удалить черновик? Это действие нельзя отменить.')) return;
-
    const res = await fetch('/drafts/delete/' + draftId, { method: 'POST' });
    const data = await res.json();
    if (data.success) {
@@ -87,8 +138,29 @@ async function deleteDraft(draftId) {
          card.style.transition = 'all 0.3s ease';
          setTimeout(() => card.remove(), 300);
       }
-      showToast('🗑 Черновик удалён');
+      if (typeof showToast === 'function') showToast('🗑 Черновик удалён');
    }
 }
+
+// Окрашиваем  баллы конкурентоспособности
+document.addEventListener('DOMContentLoaded', function() {
+   const scoreElements = document.querySelectorAll('.dc-score');
+   scoreElements.forEach(el => {
+      const scoreText = el.innerText;
+      const score = parseInt(scoreText);
+      if (isNaN(score)) return;
+      
+      if (score < 50) {
+         el.style.color = '#ee2727'; // красный
+         el.style.fontWeight = '600';
+      } else if (score >= 50 && score < 80) {
+         el.style.color = '#d9a107'; // желтый/оранжевый
+         el.style.fontWeight = '600';
+      } else if (score >= 80) {
+         el.style.color = '#10b981'; // зеленый
+         el.style.fontWeight = '700';
+      }
+   });
+});
 </script>
 {% endblock %}

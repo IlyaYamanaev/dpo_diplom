@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Редактирование: {{ draft.title }} | Каталог ДПО{% endblock %}
+
+{% block extra_head %}
+
+{% endblock %}
+
+{% block content %}
+<div class="draft-edit-page">
+   <a class="back-link" href="{{ url_for('drafts') }}">← Мои черновики</a>
+
+   <!-- Шапка -->
+   <div class="edit-hero">
+      <div class="edit-hero__top">
+         <div class="edit-hero__badge">Черновик курса</div>
+         <div class="edit-hero__score-wrap">
+         <div>
+            <div class="edit-hero__score-num" id="heroScoreNum">{{ draft.competitiveness_score or 0 }}</div>
+            <div class="edit-hero__score-label">из 100</div>
+         </div>
+         <div class="edit-hero__score-bar-wrap">
+            <div class="edit-hero__score-bar" id="heroScoreBar" style="width:{{ draft.competitiveness_score or 0 }}%"></div>
+         </div>
+         </div>
+      </div>
+      <input
+         type="text"
+         id="fieldTitle"
+         class="edit-hero__title-input"
+         placeholder="Название курса..."
+         value="{{ draft.title }}"
+         oninput="scheduleAutosave(); recalcScore();"
+      >
+      <div class="edit-hero__meta">
+         Создан: {{ draft.created_at.strftime('%d.%m.%Y в %H:%M') if draft.created_at else '-' }}
+         {% if draft.updated_at and draft.updated_at != draft.created_at %}
+         · Обновлён: {{ draft.updated_at.strftime('%d.%m.%Y в %H:%M') }}
+         {% endif %}
+      </div>
+  </div>
+
+  <!-- Конкурентоспособность (живая) -->
+  <div class="score-live">
+      <div class="score-live__head">
+         <div class="score-live__title">Конкурентоспособность</div>
+         <div class="score-live__num"><span id="scoreLiveNum">{{ draft.competitiveness_score or 0 }}</span> / 100</div>
+      </div>
+      <div class="score-live__bar-wrap">
+         <div class="score-live__bar" id="scoreLiveBar" style="width:{{ draft.competitiveness_score or 0 }}%"></div>
+      </div>
+      <div class="score-live__details" id="scoreDetails"></div>
+  </div>
+
+  <!-- Категория -->
+   <div class="section-label">Категория</div>
+   <div class="cat-row">
+      <div class="cat-select-wrap">
+         <div class="cat-select-label">Категория</div>
+         <select id="fieldCategory" class="cat-select" disabled>
+         <option value="">- Не выбрана -</option>
+         {% for cat in categories %}
+         <option value="{{ cat.id }}"
+            {% if draft.category_id == cat.id %}selected{% endif %}>
+            {{ cat.name }}
+         </option>
+         {% endfor %}
+         </select>
+      </div>
+      <div class="cat-select-wrap">
+         <div class="cat-select-label">Подкатегория</div>
+         <select id="fieldSubcategory" class="cat-select" disabled>
+         <option value="">- Не выбрана -</option>
+         {% for cat in categories %}
+            {% for sub in cat.subcategories %}
+            <option value="{{ sub.id }}" data-parent="{{ cat.id }}"
+               {% if draft.subcategory_id == sub.id %}selected{% endif %}>
+               {{ sub.name }}
+            </option>
+            {% endfor %}
+         {% endfor %}
+         </select>
+      </div>
+   </div>
+
+   <!-- Метрики -->
+   <div class="section-label" style="margin-top:16px;">Основные параметры</div>
+   <div class="edit-metrics-grid">
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Стоимость</div>
+         <input type="number" id="fieldPrice" class="edit-metric-input"
+               placeholder="0" value="{{ draft.price or '' }}"
+               oninput="scheduleAutosave(); recalcScore();">
+         <div class="edit-metric-suffix">₽</div>
+         <div class="field-fb" id="fbPrice"></div>
+      </div>
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Академических часов</div>
+         <input type="number" id="fieldHours" class="edit-metric-input"
+               placeholder="0" value="{{ draft.duration_in_hours or '' }}"
+               oninput="scheduleAutosave(); recalcScore();">
+         <div class="edit-metric-suffix">ак.ч.</div>
+         <div class="field-fb" id="fbHours"></div>
+      </div>
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Дата начала</div>
+         <input type="date" id="fieldDate" class="edit-metric-input" onclick="toggleField('hasDate')"
+               value="{{ draft.date or '' }}"
+               oninput="scheduleAutosave(); recalcScore();">
+      </div>
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Формат</div>
+         <select id="fieldFormat" class="edit-metric-select" onchange="scheduleAutosave(); recalcScore();">
+         <option value="">- Выбрать -</option>
+         {% for fmt in global_formats %}
+         <option value="{{ fmt }}" {{ 'selected' if draft.format == fmt else '' }}>{{ fmt }}</option>
+         {% endfor %}
+         </select>
+         <div class="field-fb" id="fbFormat"></div>
+      </div>
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Тип программы</div>
+         <select id="fieldCourseType" class="edit-metric-select" onchange="scheduleAutosave(); recalcScore();">
+         <option value="">- Выбрать -</option>
+         {% for t in global_types %}
+         <option value="{{ t }}" {{ 'selected' if draft.course_type == t else '' }}>{{ t }}</option>
+         {% endfor %}
+         </select>
+      </div>
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Длительность (текст)</div>
+         <input type="text" id="fieldDuration" class="edit-metric-input"
+               placeholder="3 месяца / 12 недель"
+               value="{{ draft.duration or '' }}"
+               oninput="scheduleAutosave();">
+      </div>
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Язык</div>
+         <input type="text" id="fieldLanguage" class="edit-metric-input"
+               placeholder="Русский"
+               value="{{ draft.language or 'Русский' }}"
+               oninput="scheduleAutosave();">
+      </div>
+
+      <div class="edit-metric-card">
+         <div class="edit-metric-label">Документ об окончании</div>
+         <input type="text" id="fieldDocument" class="edit-metric-input"
+               placeholder="Удостоверение / Диплом"
+               value="{{ draft.document or '' }}"
+               oninput="scheduleAutosave();">
+      </div>
+
+   </div>
+
+   <!-- Переключатели -->
+   <div class="section-label" style="margin-top:14px;">Условия</div>
+   <div class="edit-toggles">
+      <div onclick="toggleField('hasDocument')" class="edit-toggle-row">
+         <span class="edit-toggle-label"> Выдаётся официальный документ об окончании</span>
+         <div class="edit-toggle-switch {{ 'on' if draft.has_document else '' }}" id="toggleHasDocument"></div>
+      </div>
+      <div onclick="toggleField('hasInstallment')" class="edit-toggle-row">
+         <span class="edit-toggle-label"> Доступна рассрочка оплаты</span>
+         <div class="edit-toggle-switch {{ 'on' if draft.has_installment else '' }}" id="toggleHasInstallment"></div>
+      </div>
+   </div>
+
+   <!-- Описание -->
+   <div class="section-label" style="margin-top:14px;">Содержание</div>
+
+   <div class="edit-block">
+      <div class="edit-block__label">Описание курса</div>
+      <textarea id="fieldDescription" class="edit-block__textarea"
+               placeholder="Опишите курс: чему научатся слушатели, что входит в программу..."
+               oninput="scheduleAutosave(); recalcScore();">{{ draft.description or '' }}</textarea>
+   </div>
+
+   <div class="edit-block">
+      <div class="edit-block__label">График занятий</div>
+      <input type="text" id="fieldSchedule" class="edit-block__input"
+            placeholder="2 раза в неделю по вечерам, суббота..."
+            value="{{ draft.schedule or '' }}"
+            oninput="scheduleAutosave();">
+   </div>
+
+   <div class="edit-block">
+      <div class="edit-block__label">Требования к поступлению</div>
+      <textarea id="fieldAdmission" class="edit-block__textarea"
+               style="min-height:1px;"
+               placeholder="Высшее образование, опыт работы..."
+               oninput="scheduleAutosave();">{{ draft.admission_requirements or '' }}</textarea>
+   </div>
+
+
+   <!-- Заметки -->
+   <div class="section-label" style="margin-top:14px;">Личные заметки</div>
+   <div class="edit-block">
+      <div class="edit-block__label"> Только для вас - идеи, наблюдения, TODO</div>
+      <textarea id="fieldNotes" class="edit-block__textarea"
+               placeholder="Ваши мысли по курсу..."
+               oninput="scheduleAutosave();">{{ draft.notes or '' }}</textarea>
+   </div>
+
+   <!-- Статус -->
+   <div class="autosave-status" id="autosaveStatus"></div>
+
+   <!-- Кнопки -->
+   <div class="edit-actions">
+      <button class="btn-save" id="btnSave" onclick="saveNow()"> Сохранить</button>
+      <button class="btn-delete-page" onclick="confirmDelete()"> Удалить черновик</button>
+   </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/score.js') }}"></script>
+<script>
+const DRAFT_ID = {{ draft.id }};
+
+//  Переключатели 
+const bools = {
+   hasDocument:    {{ 'true' if draft.has_document else 'false' }},
+   hasInstallment: {{ 'true' if draft.has_installment else 'false' }},
+   hasDate: {{ 'true' if draft.has_date else 'false' }},
+};
+
+function toggleField(key) {
+   bools[key] = !bools[key];
+   const el = document.getElementById('toggle' + key.charAt(0).toUpperCase() + key.slice(1));
+   el.classList.toggle('on', bools[key]);
+   scheduleAutosave();
+   recalcScore();
+}
+
+// Фильтрация подкатегорий 
+// filterSubcats - из score.js
+// вызываем с текущим catId и элементом subcatSelect
+document.getElementById('fieldCategory')?.addEventListener('change', function() {
+   filterSubcats(this.value, document.getElementById('fieldSubcategory'));
+});
+filterSubcats(
+   document.getElementById('fieldCategory')?.value,
+   document.getElementById('fieldSubcategory')
+);
+
+//  Автосохранение 
+let autosaveTimer = null;
+let currentScore = {{ draft.competitiveness_score or 0 }};
+
+function scheduleAutosave() {
+   clearTimeout(autosaveTimer);
+   setStatus('saving', '...');
+   autosaveTimer = setTimeout(saveNow, 1500);
+}
+
+function setStatus(type, msg) {
+   const el = document.getElementById('autosaveStatus');
+   el.className = 'autosave-status ' + type;
+   el.textContent = msg;
+}
+
+async function saveNow() {
+   clearTimeout(autosaveTimer);
+   const btn = document.getElementById('btnSave');
+   btn.textContent = ' Сохранение...';
+   btn.style.opacity = '.7';
+   btn.style.pointerEvents = 'none';
+
+  try {
+      const res = await fetch('/draft/update/' + DRAFT_ID, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(buildPayload()),
+      });
+      const data = await res.json();
+      if (data.success) {
+         const now = new Date();
+         setStatus('saved', `✓ Сохранено в ${now.toLocaleTimeString('ru', { hour:'2-digit', minute:'2-digit' })}`);
+      } else {
+         setStatus('error', '✗ Ошибка: ' + (data.error || 'неизвестная'));
+      }
+   } catch (e) {
+      setStatus('error', '✗ Ошибка соединения');
+   }
+
+   btn.textContent = ' Сохранить';
+   btn.style.opacity = '';
+   btn.style.pointerEvents = '';
+}
+
+function buildPayload() {
+   return {
+      title:                  document.getElementById('fieldTitle').value.trim() || 'Без названия',
+      price:                  document.getElementById('fieldPrice').value || null,
+      duration_in_hours:      document.getElementById('fieldHours').value || null,
+      date:                   document.getElementById('fieldDate').value || null,
+      format:                 document.getElementById('fieldFormat').value || null,
+      course_type:            document.getElementById('fieldCourseType').value || null,
+      duration:               document.getElementById('fieldDuration').value.trim() || null,
+      language:               document.getElementById('fieldLanguage').value.trim() || null,
+      document:               document.getElementById('fieldDocument').value.trim() || null,
+      description:            document.getElementById('fieldDescription').value.trim() || null,
+      schedule:               document.getElementById('fieldSchedule').value.trim() || null,
+      admission_requirements: document.getElementById('fieldAdmission').value.trim() || null,
+      notes:                  document.getElementById('fieldNotes').value.trim() || null,
+      has_document:           bools.hasDocument,
+      has_installment:        bools.hasInstallment,
+      has_date:               bools.hasDate,
+      category_id:            document.getElementById('fieldCategory').value || null,
+      subcategory_id:         document.getElementById('fieldSubcategory').value || null,
+      competitiveness_score:  currentScore,
+   };
+}
+
+//  Рыночные параметры категории черновика 
+let M = { medianPrice:0, q1Hours:0, q3Hours:0, avgPricePerHour:0, topFormat:'', count:0 };
+
+{% if draft.category_id %}
+fetch('/api/category_analytics/{{ draft.category_id }}')
+   .then(r => r.json())
+   .then(data => { if (data.success) { M = data.analytics; recalcScore(); } })
+   .catch(() => {});
+{% endif %}
+
+//  Пересчёт конкурентоспособности - логика в score.js 
+function recalcScore() {
+   const result = calcCompetitiveness(
+      { medianPrice: M.medianPrice, q1Hours: M.q1Hours, q3Hours: M.q3Hours,
+         avgPricePerHour: M.avgPricePerHour, topFormat: M.topFormat },
+      { price:      parseFloat(document.getElementById('fieldPrice').value) || 0,
+         hours:      parseFloat(document.getElementById('fieldHours').value) || 0,
+         format:     document.getElementById('fieldFormat').value,
+         courseType: document.getElementById('fieldCourseType').value },
+      bools
+   );
+
+   applyFeedback(document.getElementById('fbPrice'),  result.feedbacks.price,  'field-fb');
+   applyFeedback(document.getElementById('fbHours'),  result.feedbacks.hours,  'field-fb');
+   applyFeedback(document.getElementById('fbFormat'), result.feedbacks.format, 'field-fb');
+
+   currentScore = result.score;
+   document.getElementById('scoreLiveNum').textContent = result.score;
+   document.getElementById('scoreLiveBar').style.width = result.score + '%';
+   document.getElementById('heroScoreNum').textContent = result.score;
+   document.getElementById('heroScoreBar').style.width = result.score + '%';
+   document.getElementById('scoreDetails').innerHTML = result.details.map(d =>
+      `<div class="score-live__row"><span>${d.label}</span><span>${d.val}</span></div>`
+   ).join('');
+}
+
+//  Удаление 
+async function confirmDelete() {
+   if (!confirm('Удалить этот черновик навсегда? Это действие нельзя отменить.')) return;
+   const res = await fetch('/drafts/delete/' + DRAFT_ID, { method: 'POST' });
+   const data = await res.json();
+   if (data.success) {
+      if (typeof showToast === 'function') showToast('🗑 Черновик удалён');
+      setTimeout(() => window.location.href = '{{ url_for("drafts") }}', 700);
+   }
+}
+
+//  Ctrl+S 
+document.addEventListener('keydown', (e) => {
+   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveNow();
+   }
+});
+
+// Инициализация
+recalcScore();
+</script>
+{% endblock %}

@@ -7,52 +7,7 @@ from kw import CATEGORIES, SUBCATEGORIES
 from normalization_functions import normalize_text
 
 
-# Функции для подгрузки ключевых слов из kw.py 
-def build_search_structure():
-   """
-   Строит структуру для быстрого поиска по ключевым словам
-   Возвращает: {
-      "category_name": {
-         "subcategory_name": ["keyword1", "keyword2", ...],
-         ...
-      }
-   }
-   """
-   search_structure = {}
-   
-   # Инициализируем структуру категориями из CATEGORIES
-   for category_name in CATEGORIES.keys():
-      search_structure[category_name] = {}
-   
-   # Заполняем подкатегориями из SUBCATEGORIES
-   for subcat_name, subcat_data in SUBCATEGORIES.items():
-      category_name = subcat_data["category"]
-      keywords = subcat_data["keywords"]
-      
-      if category_name not in search_structure:
-         search_structure[category_name] = {}
-      
-      search_structure[category_name][subcat_name] = keywords
-   
-   # Для категорий без подкатегорий добавляем пустой словарь
-   return search_structure
 
-def build_category_keywords():
-   """
-   Строит структуру ключевых слов для категорий (без подкатегорий)
-   Возвращает: {"category_name": ["keyword1", "keyword2", ...]}
-   """
-   category_keywords = {}
-   
-   for category_name, keywords in CATEGORIES.items():
-      category_keywords[category_name] = keywords
-   
-   return category_keywords
-
-
-# --------------------------------------------------------------
-#     Функции классификации курсов
-# --------------------------------------------------------------
 def classify_course(title):
    """
    Классифицирует курс по названию с учётом исключений
@@ -183,3 +138,51 @@ def process_all_courses(conn):
    finally:
       pass
    
+   
+   
+   
+   
+   
+   
+#  Функции для подгрузки ключевых слов из kw.py 
+# def build_search_structure():
+#    """
+#    Строит структуру для быстрого поиска по ключевым словам
+#    Возвращает: {
+#       "category_name": {
+#          "subcategory_name": ["keyword1", "keyword2", ...],
+#          ...
+#       }
+#    }
+#    """
+#    search_structure = {}
+   
+#    # Инициализируем структуру категориями из CATEGORIES
+#    for category_name in CATEGORIES.keys():
+#       search_structure[category_name] = {}
+   
+#    # Заполняем подкатегориями из SUBCATEGORIES
+#    for subcat_name, subcat_data in SUBCATEGORIES.items():
+#       category_name = subcat_data["category"]
+#       keywords = subcat_data["keywords"]
+      
+#       if category_name not in search_structure:
+#          search_structure[category_name] = {}
+      
+#       search_structure[category_name][subcat_name] = keywords
+   
+#    # Для категорий без подкатегорий добавляем пустой словарь
+#    return search_structure
+
+# def build_category_keywords():
+#    """
+#    Строит структуру ключевых слов для категорий (без подкатегорий)
+#    Возвращает: {"category_name": ["keyword1", "keyword2", ...]}
+#    """
+#    category_keywords = {}
+   
+#    for category_name, keywords in CATEGORIES.items():
+#       category_keywords[category_name] = keywords
+   
+#    return category_keywords
+

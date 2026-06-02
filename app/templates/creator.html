@@ -1,53 +1,101 @@
 {% extends "base.html" %}
 
-{% block title %}Создатель курсов | Каталог ДПО{% endblock %}
+{% block title %}Конструктор курса | Каталог ДПО{% endblock %}
 
 {% block extra_head %}
 
 {% endblock %}
-
+ 
 {% block content %}
-
 <div class="creator-layout">
-   <!-- ── ЛЕВАЯ КОЛОНКА: курсы ── -->
+   <!-- ── ЛЕВАЯ КОЛОНКА ── -->
    <div class="creator-left">
-      {% if selected_cat_name %}
-      <div class="courses-count-badge">{{ courses|length }} курсов в категории «{{ selected_cat_name }}»</div>
-      {% else %}
-      <div class="courses-count-badge">Выберите категорию справа, чтобы отфильтровать курсы</div>
+      <div class="creator-header">
+         {% if selected_cat_name %}
+         <div class="courses-count-badge" id="coursesCountBadge">{{ courses|length }} курсов в категории «{{ selected_cat_name }}»</div>
+         {% else %}
+         <div class="courses-count-badge" id="coursesCountBadge">Выберите категорию справа, чтобы отфильтровать курсы</div>
+         {% endif %}
+ 
+         <div class="sort-dropdown-creator">
+         <form method="GET" action="{{ url_for('creator') }}" class="sort-form">
+            <input type="hidden" name="category" value="{{ request.args.get('category', '') }}">
+            <input type="hidden" name="subcategory" value="{{ request.args.get('subcategory', '') }}">
+            <div class="custom-select">
+               <select name="sort" onchange="this.form.submit()" class="sort-select">
+               <option value="" {% if not request.args.get('sort') %}selected{% endif %}>По умолчанию</option>
+               <option value="title_asc" {% if request.args.get('sort') == 'title_asc' %}selected{% endif %}>А → Я</option>
+               <option value="title_desc" {% if request.args.get('sort') == 'title_desc' %}selected{% endif %}>Я → А</option>
+               <option value="price_asc" {% if request.args.get('sort') == 'price_asc' %}selected{% endif %}>Сначала дешевле</option>
+               <option value="price_desc" {% if request.args.get('sort') == 'price_desc' %}selected{% endif %}>Сначала дороже</option>
+               <option value="hours_asc" {% if request.args.get('sort') == 'hours_asc' %}selected{% endif %}>Сначала короткие</option>
+               <option value="hours_desc" {% if request.args.get('sort') == 'hours_desc' %}selected{% endif %}>Сначала длинные</option>
+               <option value="date_asc" {% if request.args.get('sort') == 'date_asc' %}selected{% endif %}>Ближайшие</option>
+               </select>
+               <div class="select-arrow"></div>
+            </div>
+         </form>
+         </div>
+      </div>
+ 
+      <!-- Фильтр организаций -->
+      {% if analytics and analytics.org_list %}
+      <div class="org-filter-wrap">
+         <div class="org-filter-label">Фильтр организаций — исключите конкурентов из анализа</div>
+         <div class="org-filter-list" id="orgFilterList">
+         {% for org in analytics.org_list %}
+         <div class="org-chip" data-org-id="{{ org.id }}" onclick="toggleOrg(this, {{ org.id }})">
+            <span class="chip-name">{{ org.name }}</span>
+            <span class="chip-count" style="opacity:.5">{{ org.count }}</span>
+         </div>
+         {% endfor %}
+         </div>
+      </div>
       {% endif %}
-
+ 
       {% if courses %}
-      <div class="cards">
+      <div class="cards" id="courseCards">
          {% for c in courses %}
-         <div class="card org-{{c.organization_id}}">
+         <div class="card org-{{ c.organization_id }}" data-org="{{ c.organization_id }}" data-price="{{ c.price if c.price and c.price != 'None' else '' }}" data-hours="{{ c.duration_in_hours if c.duration_in_hours else '' }}" data-format="{{ c.format if c.format else '' }}" data-type="{{ c.course_type if c.course_type else '' }}">
             <div class="org-name">{{ c.organization.name if c.organization else '—' }}</div>
+
             <div class="categories-dot">
                {% if c.categories %}
-                  {% for cat in c.categories %}<span class="category-dot">{{ cat.name }}</span>{% if not loop.last %}•{% endif %}{% endfor %}
+                  {% for cat in c.categories %}
+                  <span class="category-dot">{{ cat.name }}</span>{% if not loop.last %}•{% endif %}
+                  {% endfor %}
                {% else %}
                   <span class="category-dot">Без категории</span>
                {% endif %}
             </div>
+
             <div class="course-title">{{ c.title }}</div>
+
             <div class="spacer"></div>
+
             <div class="course-bottom">
                <div class="bottom-left">
-                  <div class="duration-text">{{ c.duration if c.duration else c.duration_in_hours }}</div>
+                  <div class="date-text">{{ c.norm_date if c.norm_date else "Дата"}}</div>
+                  <div class="duration-text">{{ c.duration if c.duration else "Не указана"}}</div>
                   <div class="hours-text">
-                     {% if c.duration_in_hours and c.duration_in_hours != 'Не указан' %}{{ c.duration_in_hours }} ак.ч.{% else %}—{% endif %}
+                     {% if c.duration_in_hours %}
+                     {{ c.duration_in_hours }} ак.ч.
+                     {% else %}Не указана{% endif %}
                   </div>
                </div>
                <div class="bottom-right">
+                  <div class="format-text">{{ c.format if c.format else 'Онлайн' }}</div>
                   <div class="course-type">{{ c.course_type if c.course_type else 'Курс' }}</div>
                   <div class="price-large">
-                     {% if c.price and c.price != 'None' %}{{ c.price }} ₽{% else %}—{% endif %}
+                     {% if c.price and c.price != 'None' %}{{ c.price }} ₽{% else %}Отсутствует{% endif %}
                   </div>
                </div>
             </div>
             <div class="card-btns">
-               <a class="btn-main" href="/course/{{c.id}}">Смотреть</a>
-               {% if c.url %}<a class="btn-ext" href="{{ c.url }}" target="_blank" rel="noopener" title="На сайт организации">↗</a>{% endif %}
+               <a class="btn-main" href="/course/{{c.id}}" target="_blank" rel="noopener">Подробнее</a>
+               {% if c.url %}
+               <a class="btn-ext" href="{{ c.url }}" target="_blank" rel="noopener" title="Открыть на сайте организации">↗</a>
+               {% endif %}
             </div>
          </div>
          {% endfor %}
@@ -56,316 +104,581 @@
       <div class="no-results"><p>В выбранной категории курсов не найдено.</p></div>
       {% endif %}
    </div>
-
-   <!-- ── ПРАВАЯ КОЛОНКА: аналитика ── -->
+ 
+   <!-- ── ПРАВАЯ КОЛОНКА ── -->
    <div class="creator-right">
       <div class="analytics-panel">
          <div class="analytics-header">
-            <h2>Создание курса</h2>
-            <div class="analytics-subhead">Анализ рынка ДПО</div>
+         <h2>Конструктор курса</h2>
+         <div class="analytics-subhead">Конкурентный анализ рынка ДПО · <span id="metricCount">{{ analytics.count if analytics else 0 }}</span> курсов</div>
          </div>
-
+ 
          <div class="analytics-body">
-            <!-- Выбор категории -->
-            <div class="cat-select-section">
-               <div class="section-label">Выберите категорию</div>
-               <form method="GET" action="{{ url_for('creator') }}" class="cat-filter-form">
-                  <select name="category" class="cat-select" id="catSelect" onchange="this.form.submit()">
-                     <option value="">— Все категории —</option>
-                     {% for cat in categories %}
-                     <option value="{{ cat.id }}" {% if selected_category == cat.id|string %}selected{% endif %}>
-                        {{ cat.name }} ({{ cat.course_count }})
-                     </option>
-                     {% endfor %}
-                  </select>
-                  <select name="subcategory" class="cat-select" id="subcatSelect" onchange="this.form.submit()">
-                     <option value="">— Все подкатегории —</option>
-                     {% for cat in categories %}
-                        {% for sub in cat.subcategories %}
-                        <option value="{{ sub.id }}"
-                           data-parent="{{ cat.id }}"
-                           {% if selected_subcategory == sub.id|string %}selected{% endif %}>
-                           {{ sub.name }} ({{ sub.course_count }})
-                        </option>
-                        {% endfor %}
-                     {% endfor %}
-                  </select>
-               </form>
+ 
+         <!-- Выбор категории -->
+         <div class="section-title">Категория</div>
+         <form method="GET" action="{{ url_for('creator') }}">
+            <select name="category" class="cat-select" id="catSelect" onchange="this.form.submit()">
+               <option value="">— Все категории —</option>
+               {% for cat in categories %}
+               <option value="{{ cat.id }}" {% if selected_category == cat.id|string %}selected{% endif %}>
+               {{ cat.name }} ({{ cat.course_count }})
+               </option>
+               {% endfor %}
+            </select>
+            <select name="subcategory" class="cat-select" id="subcatSelect" onchange="this.form.submit()">
+            <option value="">— Все подкатегории —</option>
+               {% for cat in categories %}
+                  {% for sub in cat.subcategories %}
+                  <option value="{{ sub.id }}" data-parent="{{ cat.id }}"
+                     {% if selected_subcategory == sub.id|string %}selected{% endif %}>
+                     {{ sub.name }} ({{ sub.course_count }})
+                  </option>
+                  {% endfor %}
+               {% endfor %}
+            </select>
+         </form>
+ 
+         {% if analytics %}
+         {% if selected_cat_name %}
+         <div class="selected-chip"> {{ selected_cat_name }}</div>
+         {% endif %}
+   
+         <div class="sep"></div>
+   
+         <!-- ЦЕНЫ -->
+         <div class="section-title">Цены на рынке</div>
+         <div class="metrics-grid">
+            <div class="metric-card">
+               <div class="metric-label">Средняя цена</div>
+               <div class="metric-value" id="metricAvgPrice">{{ '{:,}'.format(analytics.avg_price).replace(',', ' ') }} ₽</div>
             </div>
-
-            {% if analytics %}
-            <div class="sep"></div>
-
-            {% if selected_cat_name %}
-            <div class="selected-chip">📊 {{ selected_cat_name }}</div>
+            <div class="metric-card">
+               <div class="metric-label">Медианная цена</div>
+               <div class="metric-value" id="metricMedianPrice">{{ '{:,}'.format(analytics.median_price).replace(',', ' ') }} ₽</div>
+            </div>
+            <div class="metric-card">
+               <div class="metric-label">Минимум</div>
+               <div class="metric-value" id="metricMinPrice">{{ '{:,}'.format(analytics.min_price).replace(',', ' ') }} ₽</div>
+            </div>
+            <div class="metric-card">
+               <div class="metric-label">Максимум</div>
+               <div class="metric-value" id="metricMaxPrice">{{ '{:,}'.format(analytics.max_price).replace(',', ' ') }} ₽</div>
+            </div>
+            <div class="metric-card">
+               <div class="metric-label">Квартиль Q1</div>
+               <div class="metric-value" id="metricQ1Price">{{ '{:,}'.format(analytics.q1_price).replace(',', ' ') }} ₽</div>
+            </div>
+            <div class="metric-card">
+               <div class="metric-label">Квартиль Q3</div>
+               <div class="metric-value" id="metricQ3Price">{{ '{:,}'.format(analytics.q3_price).replace(',', ' ') }} ₽</div>
+            </div>
+            {% if analytics.avg_price_per_hour %}
+            <div class="metric-card full-width">
+               <div class="metric-label">Средняя цена за ак.ч.</div>
+               <div class="metric-value" id="metricAvgPPH">{{ '{:,}'.format(analytics.avg_price_per_hour).replace(',', ' ') }} ₽/ч</div>
+                  <div class="metric-sub">медиана: <span id="metricMedPPH">{{ '{:,}'.format(analytics.median_price_per_hour).replace(',', ' ') }} ₽/ч</span></div>
+               </div>
             {% endif %}
-
-            <!-- Метрики цены и часов -->
-            <div class="metrics-grid">
-               <div class="metric-card">
-                  <div class="metric-label">Средняя цена</div>
-                  <div class="metric-value">{{ '{:,}'.format(analytics.avg_price).replace(',', ' ') }} ₽</div>
-               </div>
-               <div class="metric-card">
-                  <div class="metric-label">Медианная цена</div>
-                  <div class="metric-value">{{ '{:,}'.format(analytics.median_price).replace(',', ' ') }} ₽</div>
-               </div>
-               <div class="metric-card" style="grid-column: 1 / -1;">
-                  <div class="metric-label">Средняя длительность</div>
-                  <div class="metric-value">{{ analytics.avg_hours }} ак.ч.</div>
-                  <div class="metric-sub">на основе {{ analytics.count }} курсов</div>
-               </div>
+         </div>
+ 
+         <!-- ДЛИТЕЛЬНОСТЬ -->
+         <div class="section-title">Длительность</div>
+         <div class="metrics-grid">
+            <div class="metric-card">
+               <div class="metric-label">Средняя</div>
+               <div class="metric-value" id="metricAvgHours">{{ analytics.avg_hours }} ч</div>
             </div>
-
-            <!-- Формат -->
-            <div class="popular-block">
-               <div class="popular-title">Самый популярный формат</div>
-               <div class="popular-value">
-                  {{ analytics.top_format }}
-                  <span class="popular-percent">{{ analytics.top_format_pct }}%</span>
-               </div>
-               {% if analytics.other_formats %}
-               <div class="popular-others">
-                  {% for fmt, pct in analytics.other_formats %}{{ fmt }} — {{ pct }}%{% if not loop.last %} | {% endif %}{% endfor %}
-               </div>
-               {% endif %}
+            <div class="metric-card">
+               <div class="metric-label">Медиана</div>
+               <div class="metric-value" id="metricMedianHours">{{ analytics.median_hours }} ч</div>
             </div>
-
-            <!-- Тип -->
-            <div class="popular-block">
-               <div class="popular-title">Самый популярный тип</div>
-               <div class="popular-value" style="font-size:14px;">
-                  {{ analytics.top_type }}
-                  <span class="popular-percent">{{ analytics.top_type_pct }}%</span>
-               </div>
-               {% if analytics.other_types %}
-               <div class="popular-others">
-                  {% for t, pct in analytics.other_types %}{{ t }} — {{ pct }}%{% if not loop.last %} | {% endif %}{% endfor %}
-               </div>
-               {% endif %}
+            {% if analytics.typical_range %}
+            <div class="metric-card full-width">
+               <div class="metric-label">Типичный диапазон (Q1–Q3)</div>
+               <div class="metric-value" id="metricTypicalRange" style="font-size:14px;">{{ analytics.typical_range }}</div>
+               <div class="metric-sub">большинство курсов в этом диапазоне</div>
             </div>
-
-            <div class="sep"></div>
-
-            <!-- ── ИНТЕРАКТИВНЫЕ ПОЛЯ ── -->
-            <div class="section-label">Ваш курс</div>
-
+            {% endif %}
+         </div>
+ 
+         <!-- ФОРМАТЫ -->
+         {% if analytics.formats_dist %}
+         <div class="section-title">Форматы обучения</div>
+         <div class="dist-block" id="formatsDistBlock">
+            {% for fmt, pct in analytics.formats_dist %}
+            <div class="dist-row">
+               <div class="dist-label">{{ fmt }}</div>
+               <div class="dist-bar-wrap">
+               <div class="dist-bar {% if loop.index0 > 0 %}bar-secondary{% endif %} {% if loop.index0 > 1 %}bar-tertiary{% endif %}"
+                     style="width:{{ pct }}%"></div>
+               </div>
+               <div class="dist-pct">{{ pct }}%</div>
+            </div>
+            {% endfor %}
+         </div>
+         {% endif %}
+ 
+         <!-- ТИПЫ ПРОГРАММ -->
+         {% if analytics.types_dist %}
+         <div class="section-title">Типы программ</div>
+         <div class="dist-block" id="typesDistBlock">
+            {% for t, pct in analytics.types_dist %}
+            <div class="dist-row">
+               <div class="dist-label">{{ t }}</div>
+               <div class="dist-bar-wrap">
+               <div class="dist-bar {% if loop.index0 > 0 %}bar-secondary{% endif %} {% if loop.index0 > 1 %}bar-tertiary{% endif %}"
+                     style="width:{{ pct }}%"></div>
+               </div>
+               <div class="dist-pct">{{ pct }}%</div>
+            </div>
+            {% endfor %}
+         </div>
+         {% endif %}
+ 
+         <!-- ДАТЫ ЗАПУСКА -->
+         {% if analytics.launch_months %}
+         <div class="section-title">Популярные месяцы запуска</div>
+         <div class="dist-block">
+            {% for month, pct in analytics.launch_months %}
+            <div class="dist-row">
+               <div class="dist-label">{{ month }}</div>
+               <div class="dist-bar-wrap">
+               <div class="dist-bar" style="width:{{ pct }}%"></div>
+               </div>
+               <div class="dist-pct">{{ pct }}%</div>
+            </div>
+            {% endfor %}
+         </div>
+         {% endif %}
+ 
+         <!-- РЫНОЧНЫЕ ВЫВОДЫ -->
+         {% if analytics.insights %}
+         <div class="section-title">Рыночные выводы</div>
+         <div class="insights-block">
+            {% for ins in analytics.insights %}
+            <div class="insight-chip {{ ins.type }}">
+               <span class="insight-icon">{{ ins.icon }}</span>
+               <span>{{ ins.text }}</span>
+            </div>
+            {% endfor %}
+         </div>
+         {% endif %}
+ 
+         <div class="sep"></div>
+   
+         <!-- ── СОЗДАНИЕ КУРСА ── -->
+         <div class="section-title">Ваш курс</div>
+   
+         <div class="draft-form">
             <!-- Название -->
-            <input type="text" id="draftTitle" class="title-input" placeholder="Название курса...">
-
+            <div class="field-group">
+               <div class="field-label">Название курса</div>
+               <input type="text" id="draftTitle" class="field-input" placeholder="Введите название...">
+            </div>
+ 
             <!-- Цена -->
-            <div class="ifield-wrap">
-               <div class="popular-title">ВАША ЦЕНА</div>
-               <input type="number" id="myPrice" placeholder="Введите цену (₽)" oninput="checkPrice(this.value)">
-               <div class="price-indicator" id="priceIndicator"></div>
+            <div class="field-group">
+               <div class="field-label">Цена (₽)</div>
+               <input type="number" id="myPrice" class="field-input" placeholder="Например: 45000" oninput="updateScore()">
+               <div class="field-feedback" id="priceFeedback"></div>
             </div>
-
-            <!-- Формат -->
-            <div class="ifield-wrap">
-               <div class="popular-title">ФОРМАТ</div>
-               <select id="myFormat" onchange="checkFormat(this.value)">
-                  <option value="">— Выберите формат —</option>
-                  {% for fmt in analytics.all_formats %}
-                  <option value="{{ fmt }}" {% if fmt == analytics.top_format %}data-top="1"{% endif %}>{{ fmt }}</option>
+ 
+            <!-- Длительность -->
+            <div class="field-group">
+               <div class="field-label">Академических часов</div>
+               <input type="number" id="myHours" class="field-input" placeholder="Например: 72" oninput="updateScore(); calcDuration()">
+               <div class="field-feedback" id="hoursFeedback"></div>
+            </div>
+ 
+            <!-- Занятий в неделю + формат -->
+            <div class="field-row">
+               <div class="field-group">
+               <div class="field-label">Занятий/нед.</div>
+               <select id="mySchedule" class="field-select" onchange="calcDuration(); updateScore()">
+                  <option value="">—</option>
+                  <option value="1">1 раз</option>
+                  <option value="2">2 раза</option>
+                  <option value="3">3 раза</option>
+                  <option value="4">4 раза</option>
+                  <option value="5">5 раз</option>
+               </select>
+               </div>
+            <div class="field-group">
+               <div class="field-label">Формат</div>
+               <select id="myFormat" class="field-select" onchange="updateScore()">
+                  <option value="">— Выбрать —</option>
+                  {% for fmt in global_formats %}
+                  <option value="{{ fmt }}">{{ fmt }}</option>
                   {% endfor %}
                </select>
-               <div class="format-hint" id="formatHint">✅ Популярный формат — хороший выбор!</div>
+               </div>
             </div>
-
+            <div class="field-feedback" id="formatFeedback"></div>
+ 
             <!-- Тип курса -->
-            <div class="ifield-wrap">
-               <div class="popular-title">ТИП КУРСА</div>
-               <select id="myCourseType">
-                  <option value="">— Выберите тип —</option>
-                  {% for t in analytics.all_types %}
-                  <option value="{{ t }}">{{ t }}</option>
-                  {% endfor %}
+            <div class="field-group">
+               <div class="field-label">Тип программы</div>
+               <select id="myCourseType" class="field-select" onchange="updateScore()">
+               <option value="">— Выбрать —</option>
+               {% for t in global_types %}
+               <option value="{{ t }}">{{ t }}</option>
+               {% endfor %}
                </select>
             </div>
-
-            <!-- Длительность и график -->
-            <div class="ifield-wrap">
-               <div class="popular-title">ДЛИТЕЛЬНОСТЬ И ГРАФИК</div>
-               <input type="number" id="myHours" placeholder="Академических часов" oninput="calcDuration()">
-               <select id="mySchedule" onchange="calcDuration()" style="margin-top:8px;">
-                  <option value="">— График занятий —</option>
-                  <option value="1 раз в неделю">1 раз в неделю</option>
-                  <option value="2 раза в неделю">2 раза в неделю</option>
-                  <option value="3 раза в неделю">3 раза в неделю</option>
-                  <option value="4 раза в неделю">4 раза в неделю</option>
-                  <option value="5 раз в неделю">5 раз в неделю (ежедневно)</option>
-               </select>
-               <div class="duration-result" id="durationResult"></div>
+            <!-- Дата старта -->
+            <div onclick="toggleBool('hasDate')" class="field-group">
+               <div class="field-label">Дата старта</div>
+               <input type="date" id="myDate" class="field-input">
             </div>
-
-            <!-- Кнопка создания черновика -->
-            <button class="create-btn" onclick="createDraft()">Создать курс</button>
-
-            <div class="insight-note">* Данные основаны на {{ analytics.count }} программах ДПО в выбранной категории</div>
-
-            {% else %}
-            <div class="no-cat-msg">
-               Выберите категорию, чтобы<br>увидеть аналитику рынка
+ 
+            <!-- Документ + Рассрочка -->
+            <div onclick="toggleBool('hasDocument')" class="toggle-row">
+               <span class="toggle-label"> Выдаётся документ (удостоверение / диплом)</span>
+               <div class="toggle-switch" id="hasDocumentToggle"></div>
             </div>
-            {% endif %}
+            <div onclick="toggleBool('hasInstallment')" class="toggle-row">
+               <span class="toggle-label"> Доступна рассрочка</span>
+               <div class="toggle-switch" id="hasInstallmentToggle"></div>
+            </div>
+ 
+            <!-- Примерная длительность -->
+            <div class="field-feedback fb-blue" id="durationResult" style="display:none;"></div>
+ 
+ 
+            <!-- ИНДЕКС КОНКУРЕНТОСПОСОБНОСТИ -->
+            <div class="score-block" id="scoreBlock" style="display:none;">
+               <div class="score-header">
+               <div class="score-title">Конкурентоспособность</div>
+               <div><span class="score-num" id="scoreNum">0</span><span class="score-total"> / 100</span></div>
+               </div>
+               <div class="score-bar-wrap">
+               <div class="score-bar" id="scoreBar" style="width:0%"></div>
+               </div>
+               <div class="score-details" id="scoreDetails"></div>
+            </div>
+ 
+            <button class="create-btn" onclick="createDraft()"> Создать черновик</button>
+         </div>
+ 
+         <div class="insight-note">* Анализ основан на {{ analytics.count }} программах ДПО{% if selected_cat_name %} в категории «{{ selected_cat_name }}»{% endif %}</div>
+ 
+         {% else %}
+         <div class="no-cat-msg">
+            <div class="no-cat-icon"></div>
+            Выберите категорию,<br>чтобы увидеть<br>аналитику рынка
+         </div>
+         {% endif %}
+   
          </div><!-- /analytics-body -->
       </div>
    </div>
-</div>
+</div><!-- /creator-layout -->
+ 
 
+<script src="{{ url_for('static', filename='js/score.js') }}"></script>
 <script>
-// Данные аналитики для JS
-const ANALYTICS = {
-   avgPrice: {{ analytics.avg_price if analytics else 0 }},
-   medianPrice: {{ analytics.median_price if analytics else 0 }},
-   avgHours: {{ analytics.avg_hours if analytics else 0 }},
-   topFormat: {{ ('"' ~ analytics.top_format ~ '"') | safe if analytics else '""' }},
+// ── Данные аналитики для JS ──
+const A = {
+   avgPrice:            {{ analytics.avg_price          if analytics else 0 }},
+   medianPrice:         {{ analytics.median_price       if analytics else 0 }},
+   minPrice:            {{ analytics.min_price          if analytics else 0 }},
+   maxPrice:            {{ analytics.max_price          if analytics else 0 }},
+   q1Price:             {{ analytics.q1_price           if analytics else 0 }},
+   q3Price:             {{ analytics.q3_price           if analytics else 0 }},
+   avgPricePerHour:     {{ analytics.avg_price_per_hour if analytics else 0 }},
+   avgHours:            {{ analytics.avg_hours          if analytics else 0 }},
+   medianHours:         {{ analytics.median_hours       if analytics else 0 }},
+   q1Hours:             {{ analytics.q1_hours           if analytics else 0 }},
+   q3Hours:             {{ analytics.q3_hours           if analytics else 0 }},
+   topFormat:           "{{ analytics.top_format        if analytics else '' }}",
+   topType:             "{{ analytics.top_type          if analytics else '' }}",
+   count:               {{ analytics.count              if analytics else 0 }},
+   formatsDist:         {{ analytics.formats_dist       | tojson if analytics else '[]' }},
 };
-
-// Проверка цены
-function checkPrice(val) {
-   const ind = document.getElementById('priceIndicator');
-   if (!val || !ANALYTICS.medianPrice) { ind.style.display = 'none'; return; }
-
-   const price = parseFloat(val);
-   const median = ANALYTICS.medianPrice;
-   const avg = ANALYTICS.avgPrice;
-   const ratio = price / median;
-
-   ind.style.display = 'block';
-   ind.className = 'price-indicator';
-
-   if (ratio < 0.6) {
-      ind.classList.add('pi-blue');
-      ind.textContent = '📉 Цена слишком низкая (менее 60% от медианы)';
-   } else if (ratio < 0.85) {
-      ind.classList.add('pi-green');
-      ind.textContent = '✅ Цена ниже рынка — хорошая конкурентоспособность';
-   } else if (ratio <= 1.15) {
-      ind.classList.add('pi-green');
-      ind.textContent = '✅ Цена близка к рыночной';
-   } else if (ratio <= 1.5) {
-      ind.classList.add('pi-yellow');
-      ind.textContent = '⚠️ Цена выше среднего — обоснуйте ценность курса';
+ 
+// Состояние булевых переключателей
+const bools = { hasDocument: false, hasInstallment: false, hasDate: false};
+ 
+function toggleBool(key) {
+   bools[key] = !bools[key];
+   const toggle = document.getElementById(key + 'Toggle');
+   toggle.classList.toggle('on', bools[key]);
+   updateScore();
+}
+ 
+// ── Фильтр организаций ──
+const excludedOrgs = new Set();
+ 
+function toggleOrg(chip, orgId) {
+   if (excludedOrgs.has(orgId)) {
+      excludedOrgs.delete(orgId);
+      chip.classList.remove('excluded');
    } else {
-      ind.classList.add('pi-red');
-      ind.textContent = '🔴 Цена может быть слишком высокой';
+      excludedOrgs.add(orgId);
+      chip.classList.add('excluded');
+   }
+   applyOrgFilter();
+}
+ 
+function applyOrgFilter() {
+   const cards = document.querySelectorAll('#courseCards .card');
+   let visible = 0;
+   cards.forEach(card => {
+      const orgId = parseInt(card.dataset.org) || 0;
+      if (excludedOrgs.size > 0 && excludedOrgs.has(orgId)) {
+         card.style.display = 'none';
+      } else {
+         card.style.display = '';
+         visible++;
+      }
+   });
+   const badge = document.getElementById('coursesCountBadge');
+   if (badge) {
+      if (excludedOrgs.size === 0) {
+         badge.textContent = `${cards.length} курсов в категории`;
+      } else {
+         badge.textContent = `${visible} из ${cards.length} курсов (${excludedOrgs.size} орг. исключено)`;
+      }
+   }
+   recalcFromVisible();
+}
+ 
+function recalcFromVisible() {
+   // Пересчитываем A из видимых карточек
+   const cards = [...document.querySelectorAll('#courseCards .card')]
+      .filter(c => c.style.display !== 'none');
+ 
+   const prices = [];
+   const hours  = [];
+   const pph    = [];
+   const fmtCnt = {};
+   const typCnt = {};
+ 
+   cards.forEach(c => {
+      const p = parseFloat(c.dataset.price);
+      const h = parseFloat(c.dataset.hours);
+      if (p > 0) prices.push(p);
+      if (h > 0) hours.push(h);
+      if (p > 0 && h > 0) pph.push(p / h);
+      if (c.dataset.format) fmtCnt[c.dataset.format] = (fmtCnt[c.dataset.format] || 0) + 1;
+      if (c.dataset.type)   typCnt[c.dataset.type]   = (typCnt[c.dataset.type]   || 0) + 1;
+   });
+   
+   function pct(arr, p) {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a, b) => a - b);
+      const i = (p / 100) * (s.length - 1);
+      const lo = Math.floor(i), hi = lo + 1, f = i - lo;
+      return hi >= s.length ? Math.round(s[lo]) : Math.round(s[lo] + f * (s[hi] - s[lo]));
+   }
+   function avg(arr) { return arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0; }
+ 
+   if (prices.length) {
+      A.avgPrice    = avg(prices);
+      A.medianPrice = pct(prices, 50);
+      A.minPrice    = Math.min(...prices);
+      A.maxPrice    = Math.max(...prices);
+      A.q1Price     = pct(prices, 25);
+      A.q3Price     = pct(prices, 75);
+   }
+   if (hours.length) {
+      A.avgHours    = avg(hours);
+      A.medianHours = pct(hours, 50);
+      A.q1Hours     = pct(hours, 25);
+      A.q3Hours     = pct(hours, 75);
+      A.typicalRange = `${A.q1Hours}–${A.q3Hours} ак.ч.`;
+   }
+   if (pph.length) {
+      A.avgPricePerHour    = avg(pph);
+      A.medianPricePerHour = pct(pph, 50);
+   }
+   A.count = cards.length;
+   
+   // Топ формат
+   const topFmt = Object.entries(fmtCnt).sort((a, b) => b[1] - a[1])[0];
+   if (topFmt) A.topFormat = topFmt[0];
+   
+   // Обновить метрики на странице
+   updateAnalyticsUI(prices, hours, fmtCnt, typCnt, cards.length);
+   updateScore();
+}
+ 
+function updateAnalyticsUI(prices, hours, fmtCnt, typCnt, total) {
+   function setMetric(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+   }
+   function fmt(n) { return n > 0 ? n.toLocaleString('ru') + ' ₽' : '—'; }
+   
+   setMetric('metricAvgPrice',    fmt(A.avgPrice));
+   setMetric('metricMedianPrice', fmt(A.medianPrice));
+   setMetric('metricMinPrice',    fmt(A.minPrice));
+   setMetric('metricMaxPrice',    fmt(A.maxPrice));
+   setMetric('metricQ1Price',     fmt(A.q1Price));
+   setMetric('metricQ3Price',     fmt(A.q3Price));
+   if (A.avgPricePerHour) {
+      setMetric('metricAvgPPH',    A.avgPricePerHour.toLocaleString('ru') + ' ₽/ч');
+      setMetric('metricMedPPH',    A.medianPricePerHour > 0 ? A.medianPricePerHour.toLocaleString('ru') + ' ₽/ч' : '—');
+   }
+   setMetric('metricAvgHours',    A.avgHours > 0 ? A.avgHours + ' ч' : '—');
+   setMetric('metricMedianHours', A.medianHours > 0 ? A.medianHours + ' ч' : '—');
+   setMetric('metricTypicalRange', A.q1Hours && A.q3Hours ? `${A.q1Hours}–${A.q3Hours} ак.ч.` : '—');
+   setMetric('metricCount',       total);
+ 
+  // Обновить бары форматов
+   const fmtBlock = document.getElementById('formatsDistBlock');
+   if (fmtBlock && total > 0) {
+      const sorted = Object.entries(fmtCnt).sort((a, b) => b[1] - a[1]);
+      fmtBlock.innerHTML = sorted.map(([f, cnt], i) => {
+         const p = Math.round(cnt / total * 100);
+         const cls = i === 0 ? '' : i === 1 ? 'bar-secondary' : 'bar-tertiary';
+         return `<div class="dist-row">
+         <div class="dist-label">${f}</div>
+         <div class="dist-bar-wrap"><div class="dist-bar ${cls}" style="width:${p}%"></div></div>
+         <div class="dist-pct">${p}%</div>
+         </div>`;
+      }).join('');
+   }
+ 
+   // Обновить бары типов
+   const typBlock = document.getElementById('typesDistBlock');
+   if (typBlock && total > 0) {
+      const sorted = Object.entries(typCnt).sort((a, b) => b[1] - a[1]);
+      typBlock.innerHTML = sorted.map(([t, cnt], i) => {
+         const p = Math.round(cnt / total * 100);
+         const cls = i === 0 ? '' : i === 1 ? 'bar-secondary' : 'bar-tertiary';
+         return `<div class="dist-row">
+         <div class="dist-label">${t}</div>
+         <div class="dist-bar-wrap"><div class="dist-bar ${cls}" style="width:${p}%"></div></div>
+         <div class="dist-pct">${p}%</div>
+         </div>`;
+      }).join('');
    }
 }
-
-// Проверка формата
-function checkFormat(val) {
-   const hint = document.getElementById('formatHint');
-   if (!val || !ANALYTICS.topFormat) { hint.style.display = 'none'; return; }
-
-   if (val === ANALYTICS.topFormat) {
-      hint.style.display = 'block';
-      hint.textContent = '✅ Популярный формат — хороший выбор!';
-   } else {
-      hint.style.display = 'none';
-   }
-}
-
-// Расчёт длительности
+ 
+// ── Расчёт длительности ──
 function calcDuration() {
    const hours = parseFloat(document.getElementById('myHours').value);
-   const schedule = document.getElementById('mySchedule').value;
-   const result = document.getElementById('durationResult');
-
-   if (!hours || !schedule) { result.style.display = 'none'; return; }
-
-   // 1 занятие = 2 ак.ч., занятий в неделю = число из schedule
-   const match = schedule.match(/^(\d)/);
-   if (!match) { result.style.display = 'none'; return; }
-
-   const sessionsPerWeek = parseInt(match[1]);
-   const hoursPerWeek = sessionsPerWeek * 2;
+   const sessions = parseInt(document.getElementById('mySchedule').value);
+   const el = document.getElementById('durationResult');
+   if (!hours || !sessions) { el.style.display = 'none'; return; }
+   
+   const hoursPerWeek = sessions * 2;
    const weeks = Math.ceil(hours / hoursPerWeek);
    const months = (weeks / 4.33).toFixed(1);
-
-   // Итоговое поле duration
-   const durationStr = weeks > 8
-      ? `${months} мес. (≈ ${weeks} нед.)`
-      : `${weeks} нед.`;
-
-   document.getElementById('durationResult').textContent =
-      `📅 Примерная длительность: ${durationStr}`;
-   result.style.display = 'block';
-
-   // Сохраняем для черновика
-   result.dataset.durationStr = durationStr;
+   const durStr = weeks > 8 ? `${months} мес. (≈ ${weeks} нед.)` : `${weeks} нед.`;
+   el.style.display = 'block';
+   el.textContent = ` Примерная длительность: ${durStr}`;
+   el._durationStr = durStr;
 }
+ 
+// ── Обновление оценки и фидбека ──
+function updateScore() {
+   if (!A.count) return;
 
-// Создание черновика
+   const result = calcCompetitiveness(
+      { medianPrice: A.medianPrice, q1Hours: A.q1Hours, q3Hours: A.q3Hours,
+        avgPricePerHour: A.avgPricePerHour, topFormat: A.topFormat },
+      { price:      parseFloat(document.getElementById('myPrice').value) || 0,
+        hours:      parseFloat(document.getElementById('myHours').value) || 0,
+        format:     document.getElementById('myFormat').value,
+        courseType: document.getElementById('myCourseType').value },
+      bools
+   );
+
+   applyFeedback(document.getElementById('priceFeedback'),  result.feedbacks.price,  'field-feedback');
+   applyFeedback(document.getElementById('hoursFeedback'),  result.feedbacks.hours,  'field-feedback');
+   applyFeedback(document.getElementById('formatFeedback'), result.feedbacks.format, 'field-feedback');
+
+   const block = document.getElementById('scoreBlock');
+   const numEl = document.getElementById('scoreNum');
+   const barEl = document.getElementById('scoreBar');
+   const detEl = document.getElementById('scoreDetails');
+
+   if (result.details.length > 0) {
+      block.style.display = 'block';
+      numEl.textContent = result.score;
+      barEl.style.width = result.score + '%';
+      detEl.innerHTML = result.details.map(d =>
+         `<div class="score-row"><span>${d.label}</span><span class="${d.cls}">${d.val}</span></div>`
+      ).join('');
+   } else {
+      block.style.display = 'none';
+   }
+}
+ 
+   // ── Создание черновика ──
 async function createDraft() {
-   const title = document.getElementById('draftTitle')?.value.trim();
-   const price = document.getElementById('myPrice')?.value;
-   const format = document.getElementById('myFormat')?.value;
-   const courseType = document.getElementById('myCourseType')?.value;
-   const hours = document.getElementById('myHours')?.value;
-   const schedule = document.getElementById('mySchedule')?.value;
-   const durationResult = document.getElementById('durationResult');
-   const duration = durationResult?.dataset.durationStr || '';
-
+   const title     = document.getElementById('draftTitle').value.trim();
+   const price     = document.getElementById('myPrice').value;
+   const hours     = document.getElementById('myHours').value;
+   const format    = document.getElementById('myFormat').value;
+   const ctype     = document.getElementById('myCourseType').value;
+   const schedule  = document.getElementById('mySchedule').value;
+   const dateVal   = document.getElementById('myDate').value;
+   const durEl     = document.getElementById('durationResult');
+   const duration  = durEl._durationStr || '';
+   const scoreNum  = parseInt(document.getElementById('scoreNum').textContent) || 0;
+   
    if (!title) {
-      showToast('⚠️ Введите название курса');
+      showToast('Введите название курса');
       document.getElementById('draftTitle').focus();
       return;
    }
-
+ 
+   
    const res = await fetch('/drafts/create', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
          title,
-         price: price || null,
-         format: format || null,
-         course_type: courseType || null,
-         duration_in_hours: hours || null,
-         duration: duration || null,
-         schedule: schedule || null,
+         price:              price || null,
+         format:             format || null,
+         course_type:        ctype || null,
+         duration_in_hours:  hours || null,
+         duration:           duration || null,
+         schedule:           schedule ? `${schedule} раз(а) в неделю` : null,
+         date:               dateVal || null,
+         competitiveness_score: scoreNum,
+         has_document:       bools.hasDocument,
+         has_installment:    bools.hasInstallment,
+         has_date:           bools.hasDate,
+         category_id:        document.getElementById('catSelect')?.value || null,
+         subcategory_id:     document.getElementById('subcatSelect')?.value || null,
       })
    });
    const data = await res.json();
-
+ 
    if (data.success) {
-      showToast('✅ Черновик создан!');
-      // Очищаем поля
-      ['draftTitle','myPrice','myHours'].forEach(id => {
+      showToast('Черновик создан!');
+      setTimeout(() => { window.location.href = '/drafts'; }, 1200);
+      ['draftTitle', 'myPrice', 'myHours', 'myDate'].forEach(id => {
          const el = document.getElementById(id);
          if (el) el.value = '';
       });
-      ['myFormat','mySchedule','myCourseType'].forEach(id => {
+      ['myFormat', 'mySchedule', 'myCourseType'].forEach(id => {
          const el = document.getElementById(id);
          if (el) el.selectedIndex = 0;
       });
-      document.getElementById('priceIndicator').style.display = 'none';
-      document.getElementById('formatHint').style.display = 'none';
-      document.getElementById('durationResult').style.display = 'none';
+      ['priceFeedback', 'hoursFeedback', 'formatFeedback', 'durationResult'].forEach(id => {
+         document.getElementById(id).style.display = 'none';
+      });
+      document.getElementById('scoreBlock').style.display = 'none';
+      bools.hasDocument = false;
+      bools.hasInstallment = false;
+      bools.hasDate = false;
+      document.getElementById('hasDocumentToggle').classList.remove('on');
+      document.getElementById('myDate').classList.remove('on');
    } else {
-      showToast('❌ Ошибка: ' + (data.error || 'неизвестная'));
+      showToast('Ошибка: ' + (data.error || 'неизвестная'));
    }
 }
-
-// Фильтрация подкатегорий по выбранной категории
-const catSelect = document.getElementById('catSelect');
+ 
+// ── Фильтрация подкатегорий ──
+const catSelect    = document.getElementById('catSelect');
 const subcatSelect = document.getElementById('subcatSelect');
-
-function filterSubcats() {
-   const catId = catSelect.value;
-   const opts = subcatSelect.querySelectorAll('option');
-   opts.forEach(opt => {
-      if (!opt.value) return; // "— Все подкатегории —"
-      opt.style.display = (!catId || opt.dataset.parent === catId) ? '' : 'none';
-   });
-}
-
-catSelect.addEventListener('change', function() {
-   subcatSelect.value = '';
-   filterSubcats();
-});
-
-filterSubcats(); // инициализация
+catSelect?.addEventListener('change', () => { if (subcatSelect) subcatSelect.value = ''; filterSubcats(catSelect.value, subcatSelect); });
+filterSubcats(catSelect?.value, subcatSelect);
 </script>
-
 {% endblock %}

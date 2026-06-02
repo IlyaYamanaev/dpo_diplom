@@ -2,6 +2,37 @@ import re
 import dateparser
 from datetime import datetime, date
 
+
+
+def normalize_column(conn, select_column, update_column, transform_func, table="dpo_courses",):
+   try:
+      with conn.cursor() as cursor:
+         cursor.execute(f"SELECT id, {select_column} FROM {table}")
+         courses = cursor.fetchall()
+         updated = 0
+         skipped = 0
+         print(f"\n{select_column}: всего записей {len(courses)}")
+
+         for course_id, old_value in courses:
+            new_value = transform_func(old_value)
+            if new_value != old_value:
+               cursor.execute(
+                  f"UPDATE {table} SET {update_column} = %s WHERE id = %s",
+                  (new_value, course_id),
+               )
+               updated += 1
+            else:
+               skipped += 1
+
+         conn.commit()
+         print(f"   Обновлено: {updated}")
+         print(f"   Пропущено: {skipped}")
+
+   except Exception as e:
+      print(f"Ошибка: {e}")
+      conn.rollback()
+
+
 # Нормализация названия (текста в принципе)курса 
 def normalize_text(text):
    if not text:

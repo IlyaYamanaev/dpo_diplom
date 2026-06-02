@@ -22,15 +22,16 @@ db/
 *.bak
 *.swp
 *.swo
-agovno.py
 
 # Среда разработки
 .vscode/
 
 # Исходники сайтов
 sourse/
+parsers/txts/
 # Старые файлы
 старые/
+
 
 # Установка пакета
 dpo_diplom.egg-info/

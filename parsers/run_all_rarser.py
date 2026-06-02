@@ -6,6 +6,8 @@ from parser_bfu import main_bfu
 from parser_dvfu import main_dvfu
 from parser_spbgu import main_spbgu
 from parser_yandex_practic import main_yandex_practic
+from parser_safu import main_safu
+from parsers.parser_skfu import main_skfu
 
 DB_NAME = "buff_dpo_db"
 
@@ -19,3 +21,5 @@ if __name__ == "__main__":
    main_bfu(DB_NAME)
    main_spbgu(DB_NAME)
    main_yandex_practic(DB_NAME)
+   main_safu(DB_NAME)
+   main_skfu(DB_NAME)

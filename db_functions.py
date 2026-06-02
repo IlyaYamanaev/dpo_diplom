@@ -4,16 +4,6 @@ import pymysql
 from kw import CATEGORIES, SUBCATEGORIES
 
 
-# conn = mysql.connector.connect(
-#    host="localhost",
-#    user="root",
-#    password="zxcvbnasdqwe",
-#    database="dpo_db"
-# )
-
-# cursor = conn.cursor()
-
-
 def get_connection(db_name):
    return mysql.connector.connect(
       host="localhost",
@@ -89,7 +79,7 @@ def link_course_specialization(cursor, course_id: int, spec_id: int):
 
 
 def save_course(cursor, course: dict): 
-   # # Проверка данных перед сохранением 
+   # Проверка данных перед сохранением 
    # print("\n---")
    # print(f"organization_id: {course['organization_id']}")
    # print(f"Title: {course['title'][:100] if course['title'] else None}")
@@ -99,7 +89,6 @@ def save_course(cursor, course: dict):
    # print(f"Course Type: {course['course_type']}")
    # print(f"Duration: {course['duration']}")
    # print(f"Date: {course['date']}")
-   # print(f"Normalized Date: {course['norm_date']}")
    # print(f"Description: {course['description'][:100] if course['description'] else None}")
    # print(f"Language: {course['language']}")
    # print(f"Document: {course['document']}")
@@ -107,7 +96,7 @@ def save_course(cursor, course: dict):
    # print(f"Schedule: {course['schedule']}")
    # print(f"Department ID: {course['department_id']}")
    # print(f"Duration in hours: {course['duration_in_hours']}")
-   # print("---")
+   # print("---\n")
    
    """Сохраняет курс. Возвращает id новой записи или None если дубликат."""
    query = """
@@ -188,17 +177,22 @@ def clear_course_links(cursor, course_id):
    
    
 
-# --------------------------------------------------------------
-#     Функции для получения курсов по категориям/подкатегориям (для сайта)
-# --------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Функции для получения курсов по категориям/подкатегориям (для сайта)
+# -------------------------------------------------------------------------
 
 def init_categories_and_subcategories(conn):
-   """
-   Инициализирует таблицы categories и subcategories
-   на основе данных из CATEGORIES и SUBCATEGORIES
-   """
+   """   Инициализирует таблицы categories и subcategories"""
    try:
       with conn.cursor() as cursor:
+         cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
+         cursor.execute("TRUNCATE TABLE rel_course_category;")
+         cursor.execute("TRUNCATE TABLE rel_course_subcategory;")
+         cursor.execute("TRUNCATE TABLE subcategories;")
+         cursor.execute("TRUNCATE TABLE categories;")
+         cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
+         conn.commit()
+
          # Вставляем категории
          print(" Добавление категорий...")
          for category_name in CATEGORIES.keys():
@@ -226,114 +220,4 @@ def init_categories_and_subcategories(conn):
       print(f" Ошибка при инициализации: {e}")
       conn.rollback()
       raise
-   
-# def get_courses_by_category(conn, category_id, limit=100, offset=0):
-#    """Возвращает список курсов (id, title, url и т.д.) для заданной категории"""
-#    try:
-#       with conn.cursor(pymysql.cursors.DictCursor) as cursor:
-#          cursor.execute("""
-#             SELECT c.id, c.title, c.url, c.price, c.duration, c.format
-#             FROM dpo_courses c
-#             JOIN rel_course_category rcc ON c.id = rcc.course_id
-#             WHERE rcc.category_id = %s
-#             LIMIT %s OFFSET %s
-#          """, (category_id, limit, offset))
-#          return cursor.fetchall()
-#    except Exception as e:
-#       print(f" Ошибка получения курсов по категории: {e}")
-#       return []
-
-# def get_courses_by_subcategory(conn, subcategory_id, limit=100, offset=0):
-#    """Возвращает список курсов для заданной подкатегории"""
-#    try:
-#       with conn.cursor(pymysql.cursors.DictCursor) as cursor:
-#          cursor.execute("""
-#             SELECT c.id, c.title, c.url, c.price, c.duration, c.format
-#             FROM dpo_courses c
-#             JOIN rel_course_subcategory rcs ON c.id = rcs.course_id
-#             WHERE rcs.subcategory_id = %s
-#             LIMIT %s OFFSET %s
-#          """, (subcategory_id, limit, offset))
-#          return cursor.fetchall()
-#    except Exception as e:
-#       print(f" Ошибка получения курсов по подкатегории: {e}")
-#       return []
-
-# def get_courses_count_by_category(conn, category_id):
-#    """Возвращает количество курсов в категории"""
-#    try:
-#       with conn.cursor() as cursor:
-#          cursor.execute("""
-#             SELECT COUNT(*) 
-#             FROM dpo_courses c
-#             JOIN rel_course_category rcc ON c.id = rcc.course_id
-#             WHERE rcc.category_id = %s
-#          """, (category_id,))
-#          return cursor.fetchone()[0]
-#    except Exception as e:
-#       print(f" Ошибка подсчета курсов: {e}")
-#       return 0
-
-
-# def get_all_categories_with_subcategories(conn):
-#    """Возвращает дерево категорий для построения фильтра"""
-#    try:
-#       with conn.cursor() as cursor:  # Убрали DictCursor
-#          cursor.execute("SELECT id, name FROM categories ORDER BY name")
-#          categories = cursor.fetchall()  # кортежи (id, name)
-         
-#          result = []
-#          for cat_id, cat_name in categories:
-#             cursor.execute(
-#                "SELECT id, name FROM subcategories WHERE parent_category_id = %s ORDER BY name", 
-#                (cat_id,)
-#             )
-#             subcategories = cursor.fetchall()
-            
-#             subcats_list = []
-#             for sub_id, sub_name in subcategories:
-#                cursor.execute("""
-#                   SELECT COUNT(*) FROM rel_course_subcategory 
-#                   WHERE subcategory_id = %s
-#                """, (sub_id,))
-#                count = cursor.fetchone()[0]
-#                subcats_list.append({
-#                   'id': sub_id, 
-#                   'name': sub_name, 
-#                   'courses_count': count
-#                })
-            
-#             cursor.execute("""
-#                SELECT COUNT(DISTINCT course_id) FROM rel_course_category 
-#                WHERE category_id = %s
-#             """, (cat_id,))
-#             cat_count = cursor.fetchone()[0]
-            
-#             result.append({
-#                'id': cat_id,
-#                'name': cat_name,
-#                'courses_count': cat_count,
-#                'subcategories': subcats_list
-#             })
-         
-#          return result
-#    except Exception as e:
-#       print(f"Ошибка: {e}")
-#       return []
-
-# def search_courses_by_keyword(conn, keyword, limit=50):
-#    """Поиск курсов по ключевому слову в названии"""
-#    try:
-#       with conn.cursor(pymysql.cursors.DictCursor) as cursor:
-#          cursor.execute("""
-#             SELECT id, title, url, price, duration, format
-#             FROM dpo_courses
-#             WHERE title LIKE %s
-#             LIMIT %s
-#          """, (f"%{keyword}%", limit))
-#          return cursor.fetchall()
-#    except Exception as e:
-#       print(f" Ошибка поиска курсов: {e}")
-#       return []
-   
    

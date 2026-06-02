@@ -1,0 +1,115 @@
+body {
+   font-family: Tahoma, Geneva, sans-serif;
+   margin: 3% 10%;
+   background-color: #cce4f6;
+}
+
+/* ----------- */
+/* ── ШАПКА ── */
+/* ----------- */
+.site-header {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   padding: 14px 28px;
+   margin-bottom: 28px;
+   background: #7399d6;
+   border-radius: 15px;
+   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.site-header__logo {
+   font-size: 22px;
+   font-weight: 800;
+   color: #e0e5ed;
+   text-decoration: none;
+   letter-spacing: -0.3px;
+   white-space: nowrap;
+}
+
+.site-header__logo:hover {
+   color: #fff;
+}
+
+.site-header__right {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   flex-wrap: wrap;
+}
+
+/* Кнопки шапки */
+.hdr-btn {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   padding: 8px 16px;
+   border-radius: 10px;
+   font-size: 14px;
+   font-weight: 600;
+   text-decoration: none;
+   cursor: pointer;
+   border: none;
+   transition: all 0.2s ease;
+   color: #e0e5ed;
+   background: rgba(255, 255, 255, 0.15);
+}
+
+.hdr-btn:hover {
+   background: rgba(255, 255, 255, 0.28);
+   color: #fff;
+   transform: translateY(-1px);
+}
+
+.hdr-btn--disabled {
+   opacity: 0.5;
+   cursor: not-allowed;
+   pointer-events: none;
+}
+
+.hdr-btn--auth {
+   background: rgba(255, 255, 255, 0.9);
+   color: #2c3e66;
+}
+
+.hdr-btn--auth:hover {
+   background: #fff;
+   color: #1a2d5a;
+}
+
+/* Переключатель режимов */
+.mode-toggle {
+   display: flex;
+   align-items: center;
+   background: rgba(0, 0, 0, 0.15);
+   border-radius: 10px;
+   padding: 3px;
+   gap: 2px;
+}
+
+.mode-toggle a,
+.mode-toggle span {
+   padding: 5px 12px;
+   border-radius: 8px;
+   font-size: 13px;
+   font-weight: 600;
+   color: rgba(255, 255, 255, 0.7);
+   text-decoration: none;
+   transition: all 0.2s;
+   white-space: nowrap;
+}
+
+.mode-toggle a:hover {
+   color: #fff;
+}
+
+.mode-toggle a.active,
+.mode-toggle span.active {
+   background: rgba(255, 255, 255, 0.9);
+   color: #2c3e66;
+}
+
+.mode-toggle span.disabled {
+   opacity: 0.45;
+   cursor: not-allowed;
+}
