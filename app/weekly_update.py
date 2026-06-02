@@ -2,21 +2,13 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from parsers.run_all_rarser import run_all_parsers
+from parsers.general_parser import run_all_parse
 from filtration import normalize_all_courses, classify_all_courses
 from db_functions import clear_buffer_db, replace_production_data
 
 
 PROD_DB = "dpo_db"
 BUFFER_DB = "buff_dpo_db"
-
-logging.basicConfig(
-   filename="weekly_update.log",
-   level=logging.INFO,
-   format="%(asctime)s %(levelname)s %(message)s"
-)
-
-
 
 
 def weekly_update_job():
@@ -26,7 +18,7 @@ def weekly_update_job():
    try:
       clear_buffer_db()
 
-      run_all_parsers(BUFFER_DB)
+      run_all_parse(BUFFER_DB)
 
       normalize_all_courses(BUFFER_DB)
 
@@ -60,3 +52,6 @@ def start_scheduler():
    scheduler.start()
 
    return scheduler
+
+if __name__ == "__main__":
+   print("all good.")

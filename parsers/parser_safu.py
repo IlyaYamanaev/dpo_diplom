@@ -11,7 +11,7 @@ from db_functions import (
 from helpers import clean_text
 
 BASE_URL = "https://narfu.ru"
-DB_NAME = "dpo_db"
+DB_NAME = "buff_dpo_db"
 ORGANIZATION_ID = 9         
 ORGANIZATION_NAME = "САФУ"
 

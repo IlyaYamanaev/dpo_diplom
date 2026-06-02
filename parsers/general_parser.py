@@ -11,7 +11,7 @@ from parsers.parser_skfu import main_skfu
 
 DB_NAME = "buff_dpo_db"
 
-def run_all_parsers(DB_NAME):
+def run_all_parse(DB_NAME):
    main_hse(DB_NAME)
    main_kpfu(DB_NAME)
    main_netalogia(DB_NAME)
@@ -25,4 +25,4 @@ def run_all_parsers(DB_NAME):
    
    
 if __name__ == "__main__":
-   run_all_parsers(DB_NAME)
+   run_all_parse(DB_NAME)

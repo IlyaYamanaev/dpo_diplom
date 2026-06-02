@@ -16,7 +16,7 @@ BASE_URL = "https://dpo.kantiana.ru/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 ORGANIZATION_ID = 6
 DELAY = 0.4
-DB_NAME = "dpo_db"
+DB_NAME = "buff_dpo_db"
 
 
 # ---------------------------------------------------------------------------
