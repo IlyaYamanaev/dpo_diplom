@@ -1,12 +1,12 @@
-from parser_hse import main_hse
-from parser_kpfu import main_kpfu
-from parser_netalogia import main_netalogia
-from parser_ranepa import main_ranepa
-from parser_bfu import main_bfu
-from parser_dvfu import main_dvfu
-from parser_spbgu import main_spbgu
-from parser_yandex_practic import main_yandex_practic
-from parser_safu import main_safu
+from parsers.parser_hse import main_hse
+from parsers.parser_kpfu import main_kpfu
+from parsers.parser_netalogia import main_netalogia
+from parsers.parser_ranepa import main_ranepa
+from parsers.parser_bfu import main_bfu
+from parsers.parser_dvfu import main_dvfu
+from parsers.parser_spbgu import main_spbgu
+from parsers.parser_yandex_practic import main_yandex_practic
+from parsers.parser_safu import main_safu
 from parsers.parser_skfu import main_skfu
 
 DB_NAME = "buff_dpo_db"

@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from sqlalchemy import Integer, case, cast, func
 from sqlalchemy.orm import joinedload, selectinload
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 from models import (
    db,
    app,
@@ -17,9 +19,9 @@ from models import (
    UserDraft
 )
 from analytical_functions import build_analytics
+from weekly_update import start_scheduler
 
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
+
 
 # ─────────────────────────────────────────────
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -677,6 +679,14 @@ def remove_param(params, param_name):
 
 
 if __name__ == '__main__':
+
    with app.app_context():
       db.create_all()
-   app.run(debug=True)
+
+   start_scheduler()
+
+   app.run(
+      host='0.0.0.0',
+      port=5000,
+      debug=False
+   )

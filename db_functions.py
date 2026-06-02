@@ -1,6 +1,6 @@
 import mysql.connector
 from mysql.connector import IntegrityError
-import pymysql
+import logging
 from kw import CATEGORIES, SUBCATEGORIES
 
 
@@ -170,17 +170,14 @@ def get_or_create_subcategory(cursor, name, parent_category_id, conn=None):
       print(f"Ошибка при создании подкатегории '{name}': {e}")
       raise
 
+
 def clear_course_links(cursor, course_id):
    """Удаляет старые связи курса с категориями и подкатегориями"""
    cursor.execute("DELETE FROM rel_course_category WHERE course_id = %s", (course_id,))
    cursor.execute("DELETE FROM rel_course_subcategory WHERE course_id = %s", (course_id,))
-   
-   
 
-# -------------------------------------------------------------------------
-# Функции для получения курсов по категориям/подкатегориям (для сайта)
-# -------------------------------------------------------------------------
-
+   
+ 
 def init_categories_and_subcategories(conn):
    """   Инициализирует таблицы categories и subcategories"""
    try:
@@ -221,3 +218,110 @@ def init_categories_and_subcategories(conn):
       conn.rollback()
       raise
    
+# --------------------------------------------------------------
+# Функции для еженедельного обновления
+# --------------------------------------------------------------
+
+   
+def clear_buffer_db(BUFFER_DB):
+   conn = get_connection(BUFFER_DB)
+
+   try:
+      with conn.cursor() as cursor:
+         cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+
+         tables = [
+               "rel_course_category",
+               "rel_course_subcategory",
+               "dpo_course_specializations",
+               "department_emails",
+               "department_phones",
+               "subcategories",
+               "categories",
+               "dpo_courses",
+               "departments",
+               "specializations",
+               "organizations"
+         ]
+
+         for table in tables:
+               try:
+                  cursor.execute(f"TRUNCATE TABLE {table}")
+               except Exception as e:
+                  logging.warning(f"Не удалось очистить {table}: {e}")
+
+         cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+
+      conn.commit()
+
+   finally:
+      conn.close()
+
+
+def replace_production_data(PROD_DB, BUFFER_DB):
+   prod_conn = get_connection(PROD_DB)
+   buff_conn = get_connection(BUFFER_DB)
+
+   try:
+      prod_cursor = prod_conn.cursor()
+      buff_cursor = buff_conn.cursor()
+
+      prod_cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+
+      tables = [
+         "rel_course_category",
+         "rel_course_subcategory",
+         "dpo_course_specializations",
+         "department_emails",
+         "department_phones",
+         "subcategories",
+         "categories",
+         "dpo_courses",
+         "departments",
+         "specializations",
+         "organizations"
+      ]
+
+      for table in tables:
+         prod_cursor.execute(f"TRUNCATE TABLE {table}")
+
+      prod_cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+
+      copy_order = [
+         "organizations",
+         "specializations",
+         "departments",
+         "dpo_courses",
+         "categories",
+         "subcategories",
+         "department_emails",
+         "department_phones",
+         "dpo_course_specializations",
+         "rel_course_category",
+         "rel_course_subcategory",
+      ]
+
+      for table in copy_order:
+
+         buff_cursor.execute(f"SELECT * FROM {table}")
+         rows = buff_cursor.fetchall()
+
+         if not rows:
+               continue
+
+         placeholders = ",".join(["%s"] * len(rows[0]))
+
+         prod_cursor.executemany(
+               f"INSERT INTO {table} VALUES ({placeholders})",
+               rows
+         )
+
+      prod_conn.commit()
+
+   except Exception:
+      prod_conn.rollback()
+      raise
+
+   finally:
+      buff_conn.close()
+      prod_conn.close()
