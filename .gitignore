@@ -39,6 +39,7 @@ setup.py
 
 # Файлы с незаполненными данными
 *.txt
+!requirements.txt
 
 # SQL запросы (если не нужны в репе)
 sql_request/
