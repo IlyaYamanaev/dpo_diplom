@@ -17,11 +17,10 @@ from db_functions import get_connection, init_categories_and_subcategories
 
 DB_NAME = "dpo_db"
 
-
-if __name__ == "__main__":
+def normalize_all_courses(DB_NAME):
    conn = get_connection(DB_NAME)
 
-   # Нормализация данных
+   print("Нормализация данных")
    normalize_column(conn, "language", "language", normalize_language_string) 
    normalize_column(conn, "format", "format", normalize_format_string)  
    normalize_column(conn, "price", "price", normalize_price_string)       
@@ -30,7 +29,13 @@ if __name__ == "__main__":
    normalize_column(conn, "duration", "duration", normalize_duration_string) 
    normalize_column(conn, "date", "norm_date", normalize_date_string)       
    remove_duplicate_department_phones(conn)    
-
+   print("Нормализация данных завершена")
+   
+   conn.close()
+  
+  
+def classify_all_courses(DB_NAME):
+   conn = get_connection(DB_NAME)
 
    # Очищаем файлы с неклассифицированными курсами
    with open('unclassified_courses.txt', 'w', encoding='utf-8') as f:
@@ -46,6 +51,11 @@ if __name__ == "__main__":
 
    print("\n Работа завершена!")
    conn.close()
+
+
+if __name__ == "__main__":
+   normalize_all_courses(DB_NAME)
+   classify_all_courses(DB_NAME)
    
    
    
