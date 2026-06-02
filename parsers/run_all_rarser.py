@@ -11,8 +11,7 @@ from parsers.parser_skfu import main_skfu
 
 DB_NAME = "buff_dpo_db"
 
-
-if __name__ == "__main__":
+def run_all_parsers(DB_NAME):
    main_hse(DB_NAME)
    main_kpfu(DB_NAME)
    main_netalogia(DB_NAME)
@@ -23,3 +22,7 @@ if __name__ == "__main__":
    main_yandex_practic(DB_NAME)
    main_safu(DB_NAME)
    main_skfu(DB_NAME)
+   
+   
+if __name__ == "__main__":
+   run_all_parsers(DB_NAME)
