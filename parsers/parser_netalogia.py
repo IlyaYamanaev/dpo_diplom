@@ -6,7 +6,7 @@ from db_functions import (
    get_connection,
    save_course,
 )
-from helpers import clean_text
+from utilit import clean_text
 
 # ---------------------------------------------------------------------------
 # Настройки

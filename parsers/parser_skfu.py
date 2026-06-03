@@ -10,7 +10,7 @@ from db_functions import (
    link_course_specialization,
    save_course
 )
-from helpers import clean_text, truncate_string
+from utilit import clean_text, truncate_string
 
 # -------------------------------------------------------------------
 # НАСТРОЙКИ

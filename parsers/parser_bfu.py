@@ -7,7 +7,7 @@ from db_functions import (
    get_or_create_specialization,
    link_course_specialization,
 )
-from helpers import clean_text
+from utilit import clean_text
 
 # ---------------------------------------------------------------------------
 # Настройки

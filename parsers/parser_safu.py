@@ -8,7 +8,7 @@ from db_functions import (
    get_or_create_department,
    get_or_create_specialization,
 )
-from helpers import clean_text
+from utilit import clean_text
 
 BASE_URL = "https://narfu.ru"
 DB_NAME = "buff_dpo_db"

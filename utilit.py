@@ -4,28 +4,28 @@ from playwright.sync_api import sync_playwright
 
 
 def clean_text(tag) -> str | None:
-    """Очищает текст из BeautifulSoup тега или строки"""
-    if tag is None:
-        return None
-    
-    # Если передана строка
-    if isinstance(tag, str):
-        text = tag
-    else:
-        # Если передан тег BeautifulSoup
-        text = tag.get_text(separator=" ", strip=True)
-    
-    # Нормализуем пробелы
-    text = re.sub(r"[\u00a0\s]+", " ", text).strip()
-    text = text.replace("&nbsp;", " ")
-    return text or None
+   """Очищает текст из BeautifulSoup тега или строки"""
+   if tag is None:
+      return None
+   
+   # Если передана строка
+   if isinstance(tag, str):
+      text = tag
+   else:
+      # Если передан тег BeautifulSoup
+      text = tag.get_text(separator=" ", strip=True)
+   
+   # Нормализуем пробелы
+   text = re.sub(r"[\u00a0\s]+", " ", text).strip()
+   text = text.replace("&nbsp;", " ")
+   return text or None
 
 
 def truncate_string(s, max_len):
-    """Обрезает строку до max_len символов"""
-    if s and len(s) > max_len:
-        return s[:max_len]
-    return s
+   """Обрезает строку до max_len символов"""
+   if s and len(s) > max_len:
+      return s[:max_len]
+   return s
 
 
 def get_html_with_playwright(url: str) -> str:

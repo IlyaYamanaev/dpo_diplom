@@ -8,7 +8,7 @@ from db_functions import (
    save_course,
    link_course_specialization,
 )
-from helpers import clean_text, get_html_with_playwright_selector
+from utilit import clean_text, get_html_with_playwright_selector
 
 # ---------------------------------------------------------------------------
 # Настройки

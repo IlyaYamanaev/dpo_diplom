@@ -10,7 +10,7 @@ from db_functions import (
    update_department_contacts,
 )
 
-from helpers import clean_text
+from utilit import clean_text
 
 
 # ---------------------------------------------------------------------------
