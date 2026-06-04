@@ -11,7 +11,7 @@ from db_functions import (
    update_department_contacts,
    link_course_specialization,
 )
-from utilit import clean_text, get_html_with_playwright_selector
+from helpers import clean_text, get_html_with_playwright_selector
 
 #------------------------------------------------------------------------
 # Настройки

@@ -12,6 +12,7 @@ logs/
 
 # csv
 csv/
+*.csv
 
 # Базы данных
 db/

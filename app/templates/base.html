@@ -35,11 +35,11 @@
       <!-- Переключатель режима -->
       <div class="mode-toggle">
          <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' or request.endpoint == 'course' or request.endpoint == 'favorites' %}active{% endif %}">
-            Пользователь
+            Просмотр
          </a>
          {% if current_user %}
          <a href="{{ url_for('creator') }}" class="{% if request.endpoint == 'creator' %}active{% endif %}">
-            Создатель
+            Создание
          </a>
          {% else %}
          <span class="disabled" title="Войдите, чтобы использовать режим создателя">Создатель</span>
