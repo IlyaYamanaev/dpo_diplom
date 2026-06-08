@@ -411,12 +411,6 @@
    display: block;
 }
 
-.fb-purple {
-   background: #f5f3ff;
-   color: #5b21b6;
-   border: 1px solid #ddd6fe;
-   display: block;
-}
 
 /* Переключатель (документ / рассрочка) */
 .toggle-row {
@@ -473,7 +467,7 @@
 
 /* Блок оценки (score) */
 .score-block {
-   background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+   background:#f5f3ff ;
    border: 1px solid #ddd6fe;
    border-radius: var(16px);
    padding: 16px;

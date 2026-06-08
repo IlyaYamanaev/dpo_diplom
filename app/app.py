@@ -59,22 +59,13 @@ def get_categories_with_subcats():
 
 
 def apply_course_filters(query):
-   """Применяет GET-параметры фильтрации к запросу курсов."""
    org = request.args.getlist('organization')
    if org:
       query = query.filter(Course.organization_id.in_(org))
-
+      
    fmt = request.args.getlist('format')
    if fmt:
       query = query.filter(Course.format.in_(fmt))
-
-   lang = request.args.getlist('language')
-   if lang:
-      query = query.filter(Course.language.in_(lang))
-
-   ctype = request.args.getlist('course_type')
-   if ctype:
-      query = query.filter(Course.course_type.in_(ctype))
 
    categories = request.args.getlist('category')
    if categories:
@@ -83,11 +74,17 @@ def apply_course_filters(query):
          query = query.filter(
                Course.id.in_(
                   db.session.query(rel_course_category.c.course_id).filter(
-                     rel_course_category.c.category_id.in_(category_ids)
-                  )
-               )
+                     rel_course_category.c.category_id.in_(category_ids)))
          )
 
+   lang = request.args.getlist('language')
+   if lang:
+      query = query.filter(Course.language.in_(lang))
+
+   ctype = request.args.getlist('course_type')
+   if ctype:
+      query = query.filter(Course.course_type.in_(ctype))
+      
    subcategories = request.args.getlist('subcategory')
    if subcategories:
       subcategory_ids = [int(sc) for sc in subcategories if sc.isdigit()]
@@ -178,8 +175,6 @@ def index():
       selectinload(Course.subcategories)
    )
    query = apply_course_filters(query)
-   
-   # Сортировка
    sort_param = request.args.get('sort', '')
    if sort_param == 'title_asc':
       query = query.order_by(Course.title.asc())
@@ -195,8 +190,7 @@ def index():
          case((Course.price == None, 1), else_=0),
          cast(Course.price, Integer).desc()
       )
-   elif sort_param == 'hours_asc':
-      query = query.order_by(
+   elif sort_param == 'hours_asc':query = query.order_by(
          case((Course.duration_in_hours == None, 1), else_=0),
          cast(Course.duration_in_hours, Integer).asc()
       )
@@ -206,7 +200,6 @@ def index():
          cast(Course.duration_in_hours, Integer).desc()
       )
    elif sort_param == 'date_asc':
-      # Только будущие курсы, от ближайших к дальним
       query = query.filter(Course.norm_date >= func.current_date()).order_by(Course.norm_date.asc())
    else:
       query = query.order_by(func.rand())
@@ -378,14 +371,9 @@ def api_category_analytics(cat_id):
    courses = Course.query.filter(
       Course.id.in_(
          db.session.query(rel_course_category.c.course_id).filter(
-            rel_course_category.c.category_id == cat_id
-         )
-      )
-   ).all()
-
+            rel_course_category.c.category_id == cat_id))).all()
    if not courses:
       return jsonify({'success': False, 'analytics': {}})
-
    a = build_analytics(courses)
    return jsonify({
       'success': True,

@@ -111,13 +111,13 @@
 
 .dpob-filter__content::-webkit-scrollbar-thumb {
    /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
-   background-color: #95a2df;
+   background-color: #6c78ada6;
    border-radius: 10px;
 }
 
 .dpob-filter__content::-webkit-scrollbar-thumb:hover {
    /* background: linear-gradient(135deg, #5a67d8 0%, #6b46a0 100%); */
-   background-color: #95a2df
+   background-color: #6c78adc4
 }
 
 /* Чекбоксы */

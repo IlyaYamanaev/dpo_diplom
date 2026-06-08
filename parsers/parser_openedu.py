@@ -9,7 +9,7 @@ async def collect_links_and_basic_info():
    async with async_playwright() as p:
       browser = await p.chromium.launch(headless=False)  # можно headless=True, но для отладки оставим False
       page = await browser.new_page()
-      await page.goto("https://openedu.ru/course/?status=all/")
+      await page.goto("https://openedu.ru/course/?status=all")
       
       # Ждём, пока появятся первые карточки
       await page.wait_for_selector("li.list-module__IWPZ_q__item", timeout=10000)

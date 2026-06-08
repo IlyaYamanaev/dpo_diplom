@@ -208,9 +208,8 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
 # ---------------------------------------------------------------------------
 def collect_cards() -> list:
    """
-   Возвращает список dict: {"url": ..., "course_type": ...,
+   Возвращает список dict: {"url": ..., "course_type": ..., 
    "duration": ..., "specialization_name": ...}
-   Пагинация: https://dpo.kpfu.ru/course/page/N/
    """
    all_cards = []
    page = 1
@@ -220,7 +219,6 @@ def collect_cards() -> list:
          url = BASE_URL
       else:
          url = f"{BASE_URL}page/{page}/"
-
       print(f"  Каталог, страница {page}...", end=" ", flush=True)
       try:
          resp = requests.get(url, headers=HEADERS, timeout=30)
@@ -228,19 +226,15 @@ def collect_cards() -> list:
       except requests.RequestException as e:
          print(f"\nОшибка запроса: {e}")
          break
-
       soup = BeautifulSoup(resp.text, "html.parser")
-
       catalog = soup.find("div", class_="catalog__list")
       if not catalog:
          print("нет каталога — стоп")
          break
-
       cards = catalog.find_all("div", class_="course-card")
       if not cards:
          print("нет карточек — стоп")
          break
-
       page_data = []
       for card in cards:
          card_data = parse_catalog_card(card)
@@ -255,7 +249,7 @@ def collect_cards() -> list:
       if next_btn:
          next_a = next_btn.find("a")
          if not next_a:
-               break  # кнопка есть но недоступна
+               break  
       else:
          break
 

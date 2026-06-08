@@ -156,7 +156,7 @@
 }
 
 .org-8 {
-   background: linear-gradient(135deg, #ff3334 0%, #b81212 100%);
+   background: linear-gradient(135deg, #f12f2f 0%, #b61414 100%);
    color: white;
 }
 
@@ -169,6 +169,18 @@
    background: linear-gradient(135deg, #042ad1 0%, #001ea1 100%);
    color: white;
 }
+
+.org-11 {
+   background: linear-gradient(135deg, #14416c 0%, #155f8e 100%);
+   color: white;
+}
+
+.org-12 {
+   background: linear-gradient(135deg, #e86107 0%, #fd6a08c6 100%);
+   color: white;
+}
+
+
 
 /* Название организации */
 .org-name {

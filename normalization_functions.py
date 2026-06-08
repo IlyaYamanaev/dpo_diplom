@@ -96,17 +96,13 @@ def normalize_price_string(value: str, ) -> int:
    candidates = []
    for match in re.finditer(num_pattern, s):
       num_str = match.group()
-      # Очищаем пробелы внутри числа
       num_clean = re.sub(r'\s+', '', num_str)
-      # Заменяем запятую как десятичный разделитель на точку
       if ',' in num_clean and '.' not in num_clean:
          num_clean = num_clean.replace(',', '.')
-      # Пытаемся преобразовать в float
       try:
          val = float(num_clean)
       except ValueError:
          continue
-      # Отбрасываем слишком большие
       if val > MAX_PRICE:
          continue
       # Проверяем, есть ли символ валюты рядом
@@ -114,7 +110,6 @@ def normalize_price_string(value: str, ) -> int:
       context_before = s[max(0, start-10):start]
       context_after = s[end:min(len(s), end+10)]
       has_currency = bool(re.search(r'[₽руб]', context_before + context_after, re.I))
-      # Сохраняем кандидата (число, позиция, флаг валюты)
       candidates.append((val, start, has_currency))
    if not candidates:
       return None
@@ -148,7 +143,7 @@ def normalize_format_string(value: str) ->str:
       return None
 
    # 3. Приоритет: смешанный / гибридный
-   mixed_pattern = r'(смешанн|гибрид|очно-заочн|очн.*дист|очная.*дист)'
+   mixed_pattern = r'(смешанн|гибрид|очно-заочн|очн.*дист|очная.*дист|очно-дист)'
    if re.search(mixed_pattern, s_lower):
       return "Смешанный"
 
@@ -156,12 +151,12 @@ def normalize_format_string(value: str) ->str:
    online_indicators = ['онла', 'вебинар', 'видеолекц', 'в запи', 'асинхронн', 'синхронн']
    has_online = any(ind in s_lower for ind in online_indicators)
 
-   if re.search(r'(очн(ый|ая|ое)|офлайн)', s_lower) and not has_online:
+   if re.search(r'(очн(ый|ая|ое)|офлайн|очно)', s_lower) and not has_online:
       return "Очный"
 
    # 5. Онлайн формат
    # Прямые указания на онлайн
-   if re.search(r'(онлайн|вебинар|видеолекц|видеозап|асинхронн|синхронн|в записи|связь|практика)', s_lower):
+   if re.search(r'(онлайн|вебинар|видеолекц|видеозап|асинхронн|синхронн|в записи|связь|практика|дист)', s_lower):
       return "Онлайн"
 
    # Заочная форма – приравниваем к онлайн (дистант)

@@ -57,15 +57,13 @@ class Course(db.Model):
    course_type = db.Column(db.String)
    description = db.Column(db.Text)
    date = db.Column(db.String(150))
-   norm_date = db.Column(db.Date)      ##############
+   norm_date = db.Column(db.Date)      
    schedule = db.Column(db.String(255))
    admission_requirements = db.Column(db.Text)
    organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'))
    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
-
    organization = db.relationship('Organization', backref='courses')
    department = db.relationship('Department', backref='courses')
-
    categories = db.relationship('Category', secondary='rel_course_category', viewonly=False)
    subcategories = db.relationship('Subcategory', secondary='rel_course_subcategory', viewonly=False)
 

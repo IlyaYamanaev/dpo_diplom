@@ -17,7 +17,7 @@ HEADERS = {
 }
 ORGANIZATION_ID = 11
 ORGANIZATION_NAME = "СВФУ"
-DB_NAME = "buff_dpo_db"
+DB_NAME = "dpo_db"
 DELAY = 0.5
 
 # ---------------------------------------------------------------------------

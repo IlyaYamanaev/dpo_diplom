@@ -9,9 +9,7 @@ from normalization_functions import normalize_text
 
 
 def classify_course(title):
-   """
-   Классифицирует курс по названию с учётом исключений
-   """
+   """Классифицирует курс по названию с учётом исключений"""
    title_lower = normalize_text(title)  
    
    result_categories = set()
@@ -24,25 +22,21 @@ def classify_course(title):
          keywords = category_data.get("keywords", category_data.get("inc", []))
          exceptions = category_data.get("exceptions", category_data.get("exc", []))
       else:
-         keywords = category_data  # старый формат - просто список
+         keywords = category_data 
          exceptions = []
-      
       # Проверяем, есть ли исключения в названии
       has_exception = False
       for exc in exceptions:
          if exc.lower() in title_lower:
             has_exception = True
             break
-      
       if has_exception:
-         continue  # пропускаем эту категорию, если есть исключение
-      
+         continue
       # Ищем ключевые слова
       for keyword in keywords:
          if keyword.lower() in title_lower:
             result_categories.add(category_name)
             break
-   
    # Аналогично для подкатегорий (если нужно добавить исключения)
    for subcat_name, subcat_data in SUBCATEGORIES.items():
       category_name = subcat_data["category"]
@@ -84,28 +78,19 @@ def process_all_courses(conn):
          courses = cursor.fetchall()
          
          print(f" Всего курсов для обработки: {len(courses)}")
-         print("=" * 60)
          
-         for course_id, title in courses:
-               # print(f"Обработка курса {course_id}: {title[:50]}...")
-               
+         for course_id, title in courses:               
             result = classify_course(title)
-            
             if not result["categories"] and not result["subcategories"]:
                no_categories_count += 1
-               # Записываем неклассифицированный курс в файл
                with open('unclassified_courses.txt', 'a', encoding='utf-8') as f:
                   f.write(f"{course_id}\t{title}\n")
                continue
-            
             if not result["subcategories"]:
                with open('unSUBclassified_courses.txt', 'a', encoding='utf-8') as f:
                   f.write(f"{course_id}\t{title}\n")
                no_subcategories_count += 1
-            
-            # Удаляем старые связи
             clear_course_links(cursor, course_id)
-            
             # Добавляем связи с категориями
             for cat_name in result["categories"]:
                cat_id = get_or_create_category(cursor, cat_name, conn)
@@ -113,7 +98,6 @@ def process_all_courses(conn):
                   "INSERT IGNORE INTO rel_course_category (course_id, category_id) VALUES (%s, %s)",
                   (course_id, cat_id)
                )
-            
             # Добавляем связи с подкатегориями
             for cat_name, subcat_name in result["subcategories"]:
                cat_id = get_or_create_category(cursor, cat_name, conn)
@@ -125,7 +109,6 @@ def process_all_courses(conn):
             processed_count += 1
             conn.commit()
          
-         print("=" * 60)
          print(f" Статистика:")
          print(f"  - Обработано курсов: {processed_count}")
          print(f"  - Без категорий и подкатегорий: {no_categories_count}")

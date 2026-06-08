@@ -33,9 +33,7 @@ USER_AGENTS = [
 
 class BrowserManager:
    def __init__(self):
-
       self.playwright = sync_playwright().start()
-
       self.browser = self.playwright.chromium.launch(
          headless=False,
          slow_mo=random.randint(50, 150),
@@ -45,7 +43,6 @@ class BrowserManager:
                "--no-sandbox",
          ]
       )
-
       self.context = self.browser.new_context(
          user_agent=random.choice(USER_AGENTS),
          locale="ru-RU",
@@ -60,18 +57,10 @@ class BrowserManager:
 
       # Скрываем webdriver
       self.page.add_init_script("""
-      Object.defineProperty(navigator, 'webdriver', {
-         get: () => undefined
-      });
-      window.chrome = {
-         runtime: {}
-      };
-      Object.defineProperty(navigator, 'languages', {
-         get: () => ['ru-RU', 'ru']
-      });
-      Object.defineProperty(navigator, 'plugins', {
-         get: () => [1, 2, 3]
-      });
+      Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+      window.chrome = {runtime: {}};
+      Object.defineProperty(navigator, 'languages', {get: () => ['ru-RU', 'ru']});
+      Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3]});
       """)
 
    def human_delay(self, a=1.5, b=2.5):
@@ -98,7 +87,6 @@ class BrowserManager:
       )
       self.human_delay(1, 3)
       self.simulate_human()
-      # Проверка капчи
       current_url = self.page.url.lower()
       html = self.page.content().lower()
       if "captcha" in current_url or "captcha" in html:
@@ -113,7 +101,6 @@ class BrowserManager:
          except:
             pass
          self.human_delay(1, 3)
-         # иногда Яндекс еще делает догрузку
          time.sleep(random.uniform(2, 5))
       return self.page.content()
 

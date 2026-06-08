@@ -170,8 +170,8 @@ async function toggleFavoritePage(courseId) {
    const data = await res.json();
    if (data.success) {
       btn.classList.toggle('fav-active', data.is_favorite);
-      btn.innerHTML = data.is_favorite ? '❤ В избранном' : '♡ В избранное';
-      showToast(data.is_favorite ? '❤ Добавлено в избранное' : '♡ Убрано из избранного');
+      btn.innerHTML = data.is_favorite ? 'В избранном' : 'В избранное';
+      showToast(data.is_favorite ? 'Добавлено в избранное' : 'Убрано из избранного');
    }
    {% else %}
    openAuthModal('login');

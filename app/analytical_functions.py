@@ -129,26 +129,27 @@ def build_analytics(courses):
    #  Организации для фильтра 
    org_list = sorted(org_count.values(), key=lambda x: -x['count'])
 
-   #  Инсайты 
+   #  Наблюдение 
    insights = []
 
    if total >= 5:
       # Конкуренция
       if total >= 70:
-         insights.append({'icon': '🔥', 'type': 'warn', 'text': f'Высококонкурентная категория - {total} программ на рынке'})
+         insights.append({'icon': '🔥', 'type': 'warn', 
+            'text': f'Высококонкурентная категория - {total} программ на рынке'})
       elif total <= 20:
-         insights.append({'icon': '💡', 'type': 'ok', 'text': f'Малоконкурентная ниша - всего {total} программ'})
-
+         insights.append({'icon': '💡', 'type': 'ok', 
+            'text': f'Малоконкурентная ниша - всего {total} программ'})
       # Форматы
       if formats_dist:
          top_fmt, top_pct = formats_dist[0]
          if top_pct > 60:
-            insights.append({'icon': '📺', 'type': '', 'text': f'Рынок доминирован форматом «{top_fmt}» ({top_pct}%)'})
-         # Дефицит очного
+            insights.append({'icon': '📺', 'type': '', 
+            'text': f'Рынок доминирован форматом «{top_fmt}» ({top_pct}%)'})
          offline_pct = next((pct for fmt, pct in formats_dist if 'очн' in fmt.lower()), 0)
          if offline_pct < 15 and total >= 10:
-            insights.append({'icon': '🏫', 'type': 'ok', 'text': f'В категории мало очных программ ({offline_pct}%) - свободная ниша'})
-
+            insights.append({'icon': '🏫', 'type': 'ok', 
+               'text': f'В категории мало очных программ ({offline_pct}%) - свободная ниша'})
       # Цены
       if avg_price and min_price:
          if min_price > 80000:

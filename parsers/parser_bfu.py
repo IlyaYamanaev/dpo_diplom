@@ -32,7 +32,6 @@ def get_categories(soup):
    # Ищем контейнер категорий
    categories_slider = soup.find("div", class_="swiper-container")
    if not categories_slider:
-      # Пробуем найти по другому классу
       categories_slider = soup.find("div", class_=lambda x: x and "swiper-categories" in x)
    
    if categories_slider:

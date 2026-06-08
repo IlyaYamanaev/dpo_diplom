@@ -105,15 +105,18 @@ function calcCompetitiveness(market, fields, bools) {
          if (hours < q1Hours) {
             score += p.short;
             details.push({ label: 'Длительность (короткий)', val: `+${p.short}`, cls: 'sr-plus' });
-            feedbacks.hours = { cls: 'fb-yellow', text: `Курс короче большинства программ (Q1: ${q1Hours} ч)` };
+            feedbacks.hours = { cls: 'fb-yellow', 
+               text: `Курс короче большинства программ (Q1: ${q1Hours} ч)` };
          } else if (hours <= q3Hours) {
             score += p.typical;
             details.push({ label: 'Длительность (типичная)', val: `+${p.typical}`, cls: 'sr-plus' });
-            feedbacks.hours = { cls: 'fb-green', text: `Длительность в рыночном диапазоне (${q1Hours}–${q3Hours} ч)` };
+            feedbacks.hours = { cls: 'fb-green', 
+               text: `Длительность в рыночном диапазоне (${q1Hours}–${q3Hours} ч)` };
          } else {
             score += p.long;
             details.push({ label: 'Длительность (расширенная)', val: `+${p.long}`, cls: 'sr-plus' });
-            feedbacks.hours = { cls: 'fb-purple', text: `Курс длиннее большинства программ (Q3: ${q3Hours} ч)` };
+            feedbacks.hours = { cls: 'fb-red',
+                text: `Курс длиннее большинства программ (Q3: ${q3Hours} ч)` };
          }
       } else {
          score += C.hours.fallbackPoints;

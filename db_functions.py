@@ -31,13 +31,12 @@ def get_or_create_department(cursor, name: str, organization_id: int) -> int:
    row = cursor.fetchone()
    if row:
       return row[0]
-   cursor.execute("INSERT INTO departments (name, organization_id) VALUES (%s, %s)", (name, organization_id,))
+   cursor.execute("INSERT INTO departments (name, organization_id) VALUES (%s, %s)", 
+            (name, organization_id,))
    return cursor.lastrowid
 
 
-def update_department_contacts(cursor, dept_id: int, address: str,
-                              phones: list, emails: list):
-   """Обновляет адрес и добавляет контакты подразделения (без дублей)."""
+def update_department_contacts(cursor, dept_id: int, address: str, phones: list, emails: list):
    if address:
       cursor.execute(
          "UPDATE departments SET address = %s "
@@ -79,33 +78,11 @@ def link_course_specialization(cursor, course_id: int, spec_id: int):
 
 
 def save_course(cursor, course: dict): 
-   # Проверка данных перед сохранением 
-   # print("\n---")
-   # print(f"organization_id: {course['organization_id']}")
-   # print(f"Title: {course['title'][:100] if course['title'] else None}")
-   # print(f"URL: {course['url']}")
-   # print(f"Price: {course['price']}")
-   # print(f"Format: {course['format']}")
-   # print(f"Course Type: {course['course_type']}")
-   # print(f"Duration: {course['duration']}")
-   # print(f"Date: {course['date']}")
-   # print(f"Description: {course['description'][:100] if course['description'] else None}")
-   # print(f"Language: {course['language']}")
-   # print(f"Document: {course['document']}")
-   # print(f"Admission Requirements: {course['admission_requirements']}")
-   # print(f"Schedule: {course['schedule']}")
-   # print(f"Department ID: {course['department_id']}")
-   # print(f"Duration in hours: {course['duration_in_hours']}")
-   # print("---\n")
-   
    """Сохраняет курс. Возвращает id новой записи или None если дубликат."""
-   query = """
-      INSERT INTO dpo_courses (
-         organization_id, title, price, format, course_type,
-         duration, date, description, url, language, document,
+   query = """ INSERT INTO dpo_courses ( organization_id, title, price, format, 
+         course_type, duration, date, description, url, language, document,
          admission_requirements, schedule, department_id, duration_in_hours
-      ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-   """
+      ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) """
    try:
       cursor.execute(query, (
          course["organization_id"],
@@ -126,7 +103,7 @@ def save_course(cursor, course: dict):
       ))
       return cursor.lastrowid
    except IntegrityError:
-      return None  # дубликат по url
+      return None  
    
    
 # --------------------------------------------------------------

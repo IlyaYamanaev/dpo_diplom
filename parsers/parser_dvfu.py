@@ -76,10 +76,8 @@ def collect_course_urls_by_specialization(session, spec_name: str) -> dict:
       html = get_html_with_playwright_selector(page_url, "div.t-store__card-list")
       soup = BeautifulSoup(html, "html.parser")
       
-      # Ищем контейнер с карточками курсов      
       card_list = soup.find("div", class_="t-store__card-list")
       if not card_list:
-         # Вариант 2: через класс t951__grid-cont
          card_list = soup.find("div", class_="t951__grid-cont")
       
       if not card_list:
@@ -224,33 +222,31 @@ def parse_course_page(url: str, html: str) -> dict:
                
          
          # Длительность (в месяцах/неделях)
-         elif field in ["tn_text_1715773843427", "tn_text_1718260354294", "tn_text_1715675098007",
-                        "tn_text_1715580075697", "tn_text_1715768151382", "tn_text_1715774238928",
-                        "tn_text_1715773618655", 'tn_text_1715772778434', "tn_text_1715773432786",
-                        "tn_text_1716961325600", "tn_text_1715767070586", "tn_text_1723034691253",
-                        "tn_text_1715767335704", "tn_text_1715768238664", "tn_text_1730811009363",
-                        "tn_text_1730811009365", 
-                        "tn_text_1715672278504", 
-                     ]:
-            if any(word in text for word in ['день', 'дней', 'дня', 'месяц', 'мес', 'недел', 'год']):
+         elif field in [
+            "tn_text_1715773843427", "tn_text_1718260354294", "tn_text_1715675098007",
+            "tn_text_1715580075697", "tn_text_1715768151382", "tn_text_1715774238928",
+            "tn_text_1715773618655", 'tn_text_1715772778434', "tn_text_1715773432786",
+            "tn_text_1716961325600", "tn_text_1715767070586", "tn_text_1723034691253",
+            "tn_text_1715767335704", "tn_text_1715768238664", "tn_text_1730811009363",
+            "tn_text_1730811009365", "tn_text_1715672278504", ]:
+            
+            if any(word in text for word in ['ден', 'дней', 'дня', 'мес', 'недел', 'год']):
                course["duration"] = text
             else:
                duration_value = text            
-               # Ищем единицы измерения — любой из возможных полей
-               units_patterns = [
+               duration_units_elem = None
+               for pattern in [
                   "tn_text_1715675098020", "tn_text_1715773843434", "tn_text_1715580075705",
                   "tn_text_1715768151388", "tn_text_1715774238935", "tn_text_1715773618663",
                   "tn_text_1715772778441", "tn_text_1715773432793", "tn_text_1718260358750",
                   "tn_text_1716961329001", "tn_text_1715767070593", "tn_text_1723034691230",
                   "tn_text_1715767335713", "tn_text_1715768238672", "tn_text_1730811009365", 
-                  "tn_text_1715672278520",
-               ]
-               duration_units_elem = None
-               for pattern in units_patterns:
-                  duration_units_elem = artboard.find("div", class_="tn-atom", attrs={"field": pattern})
+                  "tn_text_1715672278520"]:
+                  duration_units_elem = artboard.find("div", class_="tn-atom", 
+                     attrs={"field": pattern})
                   if duration_units_elem:
                      break
-            
+
                if duration_units_elem:
                   units = clean_text(duration_units_elem.get_text(strip=True))
                   course["duration"] = f"{duration_value} {units}"
