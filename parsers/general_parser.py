@@ -1,3 +1,5 @@
+from parsers.parser_tsu import main_tsu_sync
+from parsers.parser_urfu import main_urfu_sync
 from parsers.parser_hse import main_hse
 from parsers.parser_kpfu import main_kpfu
 from parsers.parser_netalogia import main_netalogia
@@ -22,6 +24,9 @@ def run_all_parse(DB_NAME):
    main_yandex_practic(DB_NAME)
    main_safu(DB_NAME)
    main_skfu(DB_NAME)
+   main_tsu_sync(DB_NAME)
+   main_urfu_sync(DB_NAME)
+
    
    
 if __name__ == "__main__":

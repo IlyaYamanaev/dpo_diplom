@@ -236,6 +236,9 @@ async def main_urfu(db_name: str = DB_NAME):
    print(f"Дубликатов: {skipped}")
    print(f"Ошибок:     {errors}")
 
+def main_urfu_sync(db_name):
+    """Синхронная обёртка для асинхронной функции"""
+    return asyncio.run(main_urfu(db_name))
 
 if __name__ == "__main__":
-   asyncio.run(main_urfu())
+   main_urfu_sync(DB_NAME)
