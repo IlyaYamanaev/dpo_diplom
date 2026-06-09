@@ -176,7 +176,12 @@
 }
 
 .org-12 {
-   background: linear-gradient(135deg, #e86107 0%, #fd6a08c6 100%);
+   background: linear-gradient(135deg, #e46714 0%, #c9560ab9 100%);
+   color: white;
+}
+
+.org-13 {
+   background: linear-gradient(135deg, #e31938 0%, #f9c407 100%);
    color: white;
 }
 
