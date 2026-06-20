@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from sqlalchemy import Integer, case, cast, func
 from sqlalchemy.orm import joinedload, selectinload
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from models import (
    db,
@@ -163,6 +163,19 @@ def get_favorite_ids(user):
    return {f.course_id for f in favs}
 
 
+MONTHS = [
+    "", "января", "февраля", "марта", "апреля",
+    "мая", "июня", "июля", "августа",
+    "сентября", "октября", "ноября", "декабря"
+]
+
+@app.template_filter('ru_date')
+def ru_date(value):
+    if not value:
+        return ""
+
+    return f"{value.day} {MONTHS[value.month]} {value.year}"
+    
 # ─────────────────────────────────────────────
 # ГЛАВНАЯ СТРАНИЦА
 # ─────────────────────────────────────────────

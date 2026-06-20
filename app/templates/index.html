@@ -355,7 +355,7 @@
 
       <div class="course-bottom">
          <div class="bottom-left">
-            <div class="date-text">{{ c.norm_date if c.norm_date else "Дата"}}</div>
+            <div class="date-text">{{ c.norm_date|ru_date if c.norm_date else "Дата"}}</div>
             <div class="duration-text">{{ c.duration if c.duration else "Не указана"}}</div>
             <div class="hours-text">
                {% if c.duration_in_hours %}

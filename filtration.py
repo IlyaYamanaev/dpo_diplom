@@ -9,9 +9,7 @@ from normalization_functions import (
    normalize_column
 )
 from normalization_date import normalize_date_string
-
 from classification_functions import process_all_courses
-
 from db_functions import get_connection, init_categories_and_subcategories
 
 
@@ -54,7 +52,7 @@ def classify_all_courses(DB_NAME):
 
 
 if __name__ == "__main__":
-   normalize_all_courses(DB_NAME)
+   # normalize_all_courses(DB_NAME)
    classify_all_courses(DB_NAME)
    
    
