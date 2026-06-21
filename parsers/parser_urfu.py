@@ -7,11 +7,11 @@ from db_functions import (
 )
 from playwright.async_api import async_playwright
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # Настройки
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 BASE_URL = "https://dpo.urfu.ru/programs"
-ORGANIZATION_ID = 13  # УРФУ
+ORGANIZATION_ID = 13 
 DB_NAME = "dpo_db"
 DELAY = 0.5
 
@@ -26,9 +26,9 @@ DOCUMENT_BY_TYPE = {
 }
 
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # 1. Обход каталога
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 async def collect_cards(page) -> list[dict]:
    """
    Проходит все страницы каталога, собирает базовые данные карточек:
@@ -42,7 +42,7 @@ async def collect_cards(page) -> list[dict]:
    if await checkbox.count() and await checkbox.is_checked():
       await checkbox.click()
       await page.wait_for_timeout(2000)
-      print("🔘 Фильтр снят")
+      print("Фильтр снят")
 
    all_cards = []
    page_num = 1
@@ -98,9 +98,9 @@ async def collect_cards(page) -> list[dict]:
    return all_cards
 
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # 2. Парсинг страницы курса
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 async def parse_course_page(page, course_url: str, card_data: dict) -> dict:
    """
    Переходит на страницу курса и извлекает детальную информацию.
@@ -130,7 +130,7 @@ async def parse_course_page(page, course_url: str, card_data: dict) -> dict:
       await page.goto(course_url, wait_until="domcontentloaded", timeout=30000)
       await page.wait_for_timeout(2000)
 
-      # ---- Даты ----
+      # Даты
       stream_item = page.locator(".splash__stream .stream__item").first
       if await stream_item.count():
          date_text = (await stream_item.locator(".stream__item--title").inner_text()).strip()
@@ -139,20 +139,20 @@ async def parse_course_page(page, course_url: str, card_data: dict) -> dict:
                start, end = date_text.split(" - ", 1)
                course["duration"] = f"{start.strip()} — {end.strip()}"
 
-      # ---- Формат обучения (универсальный) ----
+      # Формат 
       format_value = ""
       items = page.locator(".program__properties--item")
       count = await items.count()
       for i in range(count):
          item = items.nth(i)
-         # Сначала пробуем новый вариант (подпись в subtitle)
+         # подпись в subtitle
          subtitle = item.locator(".program__properties--item--subtitle")
          if await subtitle.count() and "Формат обучения" in (await subtitle.inner_text()):
             title_elem = item.locator(".program__properties--item--title")
             if await title_elem.count():
                   format_value = (await title_elem.inner_text()).strip()
                   break
-         # Если не нашли, пробуем старый вариант (подпись в title)
+         # подпись в title
          title_elem = item.locator(".program__properties--item--title")
          if await title_elem.count() and "Формат обучения" in (await title_elem.inner_text()):
             value_elem = item.locator(".program__properties--item--text")
@@ -161,14 +161,12 @@ async def parse_course_page(page, course_url: str, card_data: dict) -> dict:
                   break
       course["format"] = format_value
 
-      # ---- Цена ----
-      # Ищем .new-price-header внутри .price-card, 
-      # он может быть внутри .free-price (бесплатно) или внутри .new-price (платно)
+      # Цена
       price_elem = page.locator(".price-card .new-price-header").first
       if await price_elem.count():
          course["price"] = (await price_elem.inner_text()).strip()
 
-      # ---- Описание ----
+      # Описание
       desc_elem = page.locator(".main__description--text").first
       if await desc_elem.count():
          course["description"] = (await desc_elem.inner_text()).strip()[:500]
@@ -179,9 +177,9 @@ async def parse_course_page(page, course_url: str, card_data: dict) -> dict:
    return course
 
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # 3. Основная функция
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 async def main_urfu(db_name: str = DB_NAME):
    print("=== Парсер УРФУ ДПО ===\n")
 

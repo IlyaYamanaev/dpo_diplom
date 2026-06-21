@@ -15,19 +15,16 @@ DB_NAME = "buff_dpo_db"
 ORGANIZATION_ID = 9         
 ORGANIZATION_NAME = "САФУ"
 
-# Файлы с HTML-кодом таблиц (можно заменить на реальные запросы)
 FILES = ["parsers\\txts\\table1.txt", 
          "parsers\\txts\\table2.txt"]
 
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ 
 def parse_course_row(row):
-
    """Извлекает данные из одной строки <tr>."""
    cells = row.find_all("td")
    if len(cells) < 7:
       return None
-
-   # 1. Название и ссылка
+   # Название и ссылка
    first_cell = cells[0]
    a_tag = first_cell.find("a")
    if not a_tag:
@@ -35,20 +32,15 @@ def parse_course_row(row):
    title = clean_text(a_tag.get_text())
    href = a_tag.get("href")
    url = BASE_URL + href if href.startswith("/") else href
-
-   # 2. Часы (duration_in_hours)
+   # duration_in_hours
    duration_hours = clean_text(cells[1].get_text())
-
-   # 3. Цена
+   # Цена
    price = clean_text(cells[2].get_text())
    if price and '.' in price:
       price = price.split('.')[0]
-      
-      
-   # 4. Тип курса
+   # Тип курса
    course_type = clean_text(cells[3].get_text())
-
-   # 5. Подразделение (department)
+   # Подразделение (department)
    dept_cell = cells[4]
    dept_span = dept_cell.find("span", class_="multiplayProp")
    if dept_span:
@@ -56,20 +48,16 @@ def parse_course_row(row):
       department_name = clean_text(dept_a.get_text()) if dept_a else clean_text(dept_span.get_text())
    else:
       department_name = clean_text(dept_cell.get_text())
-
-   # 6. Дата
+   # Дата
    date = clean_text(cells[5].get_text())
-
-   # 7. Специализации (направления)
+   # Специализации (направления)
    spec_cell = cells[6]
    spec_span = spec_cell.find("span", class_="NAPRAVLENIE")
    if spec_span:
-      # внутри могут быть <br> – разбиваем по <br> или по переводу строки
       raw_specs = spec_span.decode_contents().split("<br/>")
       specs = [clean_text(s) for s in raw_specs if clean_text(s)]
    else:
       specs = []
-
    # Определяем документ по типу курса
    document = None
    if course_type == "Краткосрочные курсы и тренинги (сертификат)":
@@ -103,7 +91,6 @@ def main_safu(DB_NAME):
    conn = get_connection(db_name)
    cursor = conn.cursor()
 
-   # Проверяем / создаём организацию
    cursor.execute("SELECT id FROM organizations WHERE id = %s", (ORGANIZATION_ID,))
    if not cursor.fetchone():
       cursor.execute(
@@ -118,7 +105,6 @@ def main_safu(DB_NAME):
    errors = 0
    total_rows = 0
 
-   # Обрабатываем КАЖДЫЙ файл отдельно
    for filename in FILES:
       if not os.path.exists(filename):
          print(f"Файл {filename} не найден, пропускаем.")

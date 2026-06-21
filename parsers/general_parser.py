@@ -11,7 +11,7 @@ from parsers.parser_yandex_practic import main_yandex_practic
 from parsers.parser_safu import main_safu
 from parsers.parser_skfu import main_skfu
 
-DB_NAME = "buff_dpo_db"
+DB_NAME = "dpo_db"
 
 def run_all_parse(DB_NAME):
    main_hse(DB_NAME)

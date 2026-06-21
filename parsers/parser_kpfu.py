@@ -35,14 +35,14 @@ def parse_catalog_card(card) -> dict:
       "specialization_name": None,
    }
 
-   # URL — из заголовка карточки
+   # URL 
    title_a = card.find("a", class_="course-card__title")
    if title_a:
       data["url"] = title_a.get("href")
 
    header = card.find("div", class_="course-card__header")
    if header:
-      # Специализация / направление
+      # Специализация 
       direction_tag = header.find("p", class_="course-card__direction")
       if direction_tag:
          data["specialization_name"] = direction_tag.get_text(strip=True) or None
@@ -50,12 +50,12 @@ def parse_catalog_card(card) -> dict:
       # Тип курса
       type_tag = header.find("p", class_="course-card__type")
       if type_tag:
-         # Убираем span с иконкой, берём только текст
+         # Убираем с иконкой
          for span in type_tag.find_all("span"):
                span.decompose()
          data["course_type"] = type_tag.get_text(strip=True) or None
 
-   # Срок освоения — ищем p.course-card__dl где dt = "Сроки освоения:"
+   # Длительность 
    body = card.find("div", class_="course-card__body")
    if body:
       for dl in body.find_all("p", class_="course-card__dl"):
@@ -100,9 +100,8 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    if card_data.get("specialization_name"):
       course["specialization_names"].append(card_data["specialization_name"])
 
-   # -----------------------------------------------------------------------
-   # Шапка курса: class="page__heading page__heading--cover"
-   # -----------------------------------------------------------------------
+   
+   # Шапка курса
    heading = soup.find("header", class_="page__heading")
    if not heading:
       heading = soup.find("div", class_="page__heading")
@@ -123,7 +122,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                if spec_name and spec_name not in course["specialization_names"]:
                   course["specialization_names"].append(spec_name)
 
-         # Параметры: document, duration_in_hours, price
+         # document, duration_in_hours, price
          for item in course_head.find_all("p", class_="course-parametrs__item"):
                bold = item.find("span", class_="course-parametrs__bold")
                plain = item.find("span", class_="course-parametrs__plain")
@@ -140,7 +139,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                   course["duration_in_hours"] = bold_text or None
 
    # -----------------------------------------------------------------------
-   # Описание: section.course-description
+   # Описание
    # -----------------------------------------------------------------------
    desc_section = soup.find("section", class_="course-description")
    if desc_section:
@@ -150,7 +149,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
          course["description"] = "\n".join(texts)
 
    # -----------------------------------------------------------------------
-   # Контакты: section > h2 "Контакты центра"
+   # Контакты
    # -----------------------------------------------------------------------
    for section in soup.find_all("section", class_="page__section"):
       h2 = section.find("h2")
@@ -166,7 +165,6 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       if headname:
          course["department_name"] = headname.get_text(strip=True) or None
 
-      # Секции внутри контактов
       for contact_section in contacts_div.find_all("div", class_="course-contacts__section"):
          section_title = contact_section.find("h3", class_="course-contacts__title")
          if not section_title:
@@ -191,20 +189,19 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                for li in contact_section.find_all("li"):
                   span = li.find("span", class_="icon-text")
                   if span:
-                     # убираем вложенный span с иконкой
                      for inner in span.find_all("span"):
                            inner.decompose()
                      addr = span.get_text(strip=True)
                      if addr:
                            course["department_address"] = addr
                            break
-      break  # нашли секцию контактов — дальше не ищем
+      break  
 
    return course
 
 
 # ---------------------------------------------------------------------------
-# Сбор карточек из каталога (все страницы пагинации)
+# Сбор карточек из каталога
 # ---------------------------------------------------------------------------
 def collect_cards() -> list:
    """
@@ -273,7 +270,6 @@ def main_kpfu(DB_NAME):
    conn = get_connection(db_name)
    cursor = conn.cursor()
 
-   # Убедимся что организация КФУ существует
    cursor.execute(
       "INSERT INTO organizations (id, name) VALUES (2, 'КФУ') "
       "ON DUPLICATE KEY UPDATE name = name"
@@ -319,7 +315,7 @@ def main_kpfu(DB_NAME):
                conn.commit()
                continue
 
-         # Специализации (many-to-many)
+         # Специализации 
          for spec_name in course["specialization_names"]:
                spec_id = get_or_create_specialization(cursor, spec_name)
                link_course_specialization(cursor, course_id, spec_id)

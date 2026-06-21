@@ -21,9 +21,6 @@ DELAY = 0.2
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
 # ---------------------------------------------------------------------------
-
-
-
 def parse_price(text: str) -> str | None:
    """
    Из строки вида 'или 80\u00a0300\u00a0₽' или '103\u00a0200'
@@ -36,7 +33,7 @@ def parse_price(text: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Сбор карточек из каталога /navigation
+# Сбор карточек из каталога 
 # ---------------------------------------------------------------------------
 def collect_cards(soup: BeautifulSoup) -> list[dict]:
    """
@@ -65,16 +62,15 @@ def collect_cards(soup: BeautifulSoup) -> list[dict]:
          "duration": None,
          "price_free": False,
       }
-
-      # URL — ищем любую ссылку внутри карточки
+      # URL 
       a_tag = card.find("a", href=True)
       if a_tag:
          href = a_tag.get("href", "")
          if href.startswith("/"):
                href = "https://netology.ru" + href
-         data["url"] = href.split("?")[0].split("#")[0]  # убираем query/fragment
+         data["url"] = href.split("?")[0].split("#")[0]  
 
-      # course_type и признак бесплатности — из badge
+      # course_type 
       badges = card.find_all("div", class_=re.compile(r"programCard_newCatalogBadge"))
       for badge in badges:
          text = badge.get_text(strip=True)
@@ -118,9 +114,6 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       "department_id": None,
    }
 
-   # -----------------------------------------------------------------------
-   # Блок coursePresentationUpd_row
-   # -----------------------------------------------------------------------
    # Заголовок
    h1 = soup.find("h1", attrs={"name": "title"})
    if not h1:
@@ -128,7 +121,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    if h1:
       course["title"] = clean_text(h1)
 
-   # Описание: собираем все p.presentationDescription_text
+   # Описание
    desc_tags = soup.find_all("p", class_=re.compile(r"presentationDescription_text"))
    if desc_tags:
       texts = []
@@ -140,10 +133,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
             course["description"] = "\n".join(texts)           
                
 
-   # -----------------------------------------------------------------------
-   # Блок stats (дата, формат, уровень/требования, документ)
-   # -----------------------------------------------------------------------   
-   # Список возможных классов/паттернов для поиска stats блока
+   # дата, формат, требования, документ
    stats_patterns = [
       r"stats_root__VXIIB",
       r"stats_root__IPQhX"
@@ -155,32 +145,26 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       if stats_block:
          break
       
-      
    if stats_block:
       for stat in stats_block.find_all("div", class_=re.compile(r"stats_stat__")):
          title_tag = stat.find("p", class_=re.compile(r"stats_statTitle"))
          value_tag = stat.find("p", class_=re.compile(r"stats_statValue"))
-
+         
          if not title_tag or not value_tag:
                continue
-
          title_text = clean_text(title_tag) or ""
          value_text = clean_text(value_tag)
-
+         
          if "Когда" in title_text:
-               # date: берём атрибут name="customDate" если есть, иначе текст
                date_p = stat.find("p", attrs={"name": "customDate"})
                if date_p:
                   course["date"] = clean_text(date_p)
                else:
                   course["date"] = value_text
-
          elif "Формат" in title_text:
                course["format"] = value_text
-
          elif "Уровень" in title_text:
                course["admission_requirements"] = value_text or "Не указаны"
-
          elif "Документ" in title_text:
                course["document"] = value_text
 
@@ -189,21 +173,16 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       if price_str:
          course["price"] = price_str
    
-
    return course
 
 
-      
+# извлечение цены из блока тарифов
 def _extract_price(soup: BeautifulSoup) -> str | None:
-   """Пытается извлечь цену из блока тарифов."""
-   # Вариант 1: через styles_root__NoDqQ
    nodo = soup.find("div", class_=re.compile(r"styles_root__NoDqQ"))
    search_root = nodo if nodo else soup
 
-   # Первый BN7U1
    bn7u1 = search_root.find("div", class_=re.compile(r"styles_root__BN7U1"))
 
-   # innerContent → B5IdH
    if bn7u1:
       inner = bn7u1.find("div", class_=re.compile(r"styles_innerContent__MFvW4"))
       b5idh = inner.find("div", class_=re.compile(r"styles_root__B5IdH")) if inner else None
@@ -219,17 +198,17 @@ def _extract_price(soup: BeautifulSoup) -> str | None:
    if free_tag and "бесплатно" in free_tag.get_text(strip=True).lower():
       return "0"
 
-   # или X ₽
+   # X ₽
    price_tag = price_search.find("div", class_=re.compile(r"styles_price__ylvL2"))
    if price_tag:
       return parse_price(price_tag.get_text())
 
-   # currentPrice (X ₽)
+   # currentPrice 
    cur_tag = price_search.find("div", class_=re.compile(r"styles_currentPrice__vR_wT"))
    if cur_tag:
       return parse_price(cur_tag.get_text())
 
-   # Широкий поиск по всей странице
+   # поиск по всей странице
    price_tag = soup.find("div", class_=re.compile(r"styles_price__ylvL2"))
    if price_tag:
       return parse_price(price_tag.get_text())
@@ -263,7 +242,6 @@ def main_netalogia(DB_NAME):
    conn = get_connection(db_name)
    cursor = conn.cursor()
 
-   # Убедимся что организация Нетология существует
    cursor.execute(
       "INSERT INTO organizations (id, name) VALUES (3, 'Нетология') "
       "ON DUPLICATE KEY UPDATE name = name"

@@ -52,7 +52,7 @@ def classify_all_courses(DB_NAME):
 
 
 if __name__ == "__main__":
-   # normalize_all_courses(DB_NAME)
+   normalize_all_courses(DB_NAME)
    classify_all_courses(DB_NAME)
    
    

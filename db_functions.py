@@ -13,8 +13,6 @@ def get_connection(db_name):
    )
 
 
-# Вспомогательные функции для работы с БД
-
 def get_or_create_specialization(cursor, name: str) -> int:
    """Возвращает id специализации, создаёт если не существует."""
    cursor.execute("SELECT id FROM specializations WHERE name = %s", (name,))

@@ -52,7 +52,6 @@ class BrowserManager:
                "height": random.randint(580, 600)
          }
       )
-
       self.page = self.context.new_page()
 
       # Скрываем webdriver
@@ -128,7 +127,6 @@ def extract_duration(footer_text: str):
    Из 'С нуля' → None (нет информации о месяцах)
    """
    footer_text = clean_text(footer_text)
-   # Ищем фрагмент с числом и словом месяц/месяца/месяцев
    match = re.search(r"(\d+\s*месяц\w*)", footer_text)
    if match:
       return match.group(1).strip()
@@ -146,7 +144,6 @@ def extract_price_from_text(text):
    if match:
       number = re.sub(r"\s", "", match.group(1))
       return number
-
    return None
 
 
@@ -157,10 +154,9 @@ def clean_text(tag) -> str:
    # Если передана строка
    if isinstance(tag, str):
       text = tag
+   # Если BeautifulSoup
    else:
-      # Если передан тег BeautifulSoup
       text = tag.get_text(separator=" ", strip=True)
-   # Нормализуем пробелы
    text = re.sub(r"[\u00a0\s]+", " ", text).strip()
    text = text.replace("&nbsp;", " ")
    return text
@@ -191,16 +187,15 @@ def parse_catalog(html: str) -> list:
          continue
       url = build_full_url(href)
 
-      # Убираем ?from=catalog и прочие параметры для чистого URL
       url_clean = url.split("?")[0].rstrip("/") + "/"
 
-      # Цена (Бесплатно)
+      # Цена 
       price = None
       badge = card_a.find("div", class_="prof-window-v2__card-badge_free")
       if badge and "Бесплатно" in badge.get_text():
          price = "0"
 
-      # Специализации (через запятую в direction)
+      # Специализации
       specialization_names = []
       direction_div = card_a.find("div", class_="prof-window-v2__card-direction")
       if direction_div:
@@ -212,7 +207,7 @@ def parse_catalog(html: str) -> list:
       title_tag = card_a.find("h2", class_="prof-window-v2__card-title")
       title = clean_text(title_tag.get_text()) if title_tag else None
 
-      # Срок (duration)
+      # Срок 
       footer_div = card_a.find("div", class_="prof-window-v2__card-footer")
       duration = None
       if footer_div:
@@ -278,7 +273,6 @@ def parse_course_page(url: str, html: str, card_data: dict, browser: BrowserMana
       if span:
          text = clean_text(span.get_text())
          if "Ближайший старт" in text:
-               # Берём всё после "— "
                parts = text.split("—", 1)
                if len(parts) > 1:
                   course["date"] = parts[1].strip()
@@ -308,12 +302,10 @@ def parse_course_page(url: str, html: str, card_data: dict, browser: BrowserMana
 
    doc, ctype = None, None
 
-   # bullets-block в шапке
    bullets_block = soup.find("ul", class_=lambda c: c and "bullets-block" in c)
    if bullets_block:
       doc, ctype = _find_doc_in_container(bullets_block)
 
-   # paragraph-блоки (только те, что содержат слово "Выдадим" / "Получите")
    if not doc:
       for para in soup.find_all("div", class_="paragraph"):
          text = clean_text(para.get_text())
@@ -324,7 +316,6 @@ def parse_course_page(url: str, html: str, card_data: dict, browser: BrowserMana
                doc, ctype = "Удостоверение о повышении квалификации", "Повышение квалификации"
                break
 
-   # lc-styled-text__text — для маркеров "Ваш диплом" / "Ваше свидетельство"
    if not doc:
       for styled in soup.find_all("div", class_=lambda c: c and "lc-styled-text__text" in c):
          text = clean_text(styled.get_text())
@@ -348,41 +339,38 @@ def parse_course_page(url: str, html: str, card_data: dict, browser: BrowserMana
 
    # Price
    if course["price"] is None:
-       
       # common-flow__row_tariff → первая карточка displayed → common-flow-price__message
       tariff_row = soup.find("ul", class_=lambda c: c and "common-flow__row_tariff" in c)
-      
       if tariff_row:
          # первую li.common-flow-card с классом displayed
          first_card = tariff_row.find(
-               "li",
-               class_=lambda c: c and "common-flow-card" in c and "common-flow-card_plus" not in c
+            "li",
+            class_=lambda c: c and "common-flow-card" in c and "common-flow-card_plus" not in c
          )
          if not first_card:
-               first_card = tariff_row.find("li", class_=lambda c: c and "common-flow-card" in c)
-
+            first_card = tariff_row.find("li", class_=lambda c: c and "common-flow-card" in c)
          if first_card:
-               # common-flow-price__message
-               price_msg = first_card.find("span", class_="common-flow-price__message")
-               if price_msg:
-                  course["price"] = extract_price_from_text(price_msg.get_text())
+            # common-flow-price__message
+            price_msg = first_card.find("span", class_="common-flow-price__message")
+            if price_msg:
+               course["price"] = extract_price_from_text(price_msg.get_text())
          
          if first_card:
-               # common-flow-price__message
-               price_msg = first_card.find("span", class_="common-flow-price__message")
-               if price_msg:
-                  price_text = price_msg.get_text()
-                  course["price"] = extract_price_from_text(price_text)
-               # price-overall
-               if course["price"] is None:
-                  price_overall = first_card.find("span", class_="price-overall")
-                  if price_overall:
-                     course["price"] = extract_price_from_text(price_overall.get_text())
-               # price_description
-               if course["price"] is None:
-                  price_desc = first_card.find("div", class_="price_description")
-                  if price_desc:
-                     course["price"] = extract_price_from_text(price_desc.get_text())
+            # common-flow-price__message
+            price_msg = first_card.find("span", class_="common-flow-price__message")
+            if price_msg:
+               price_text = price_msg.get_text()
+               course["price"] = extract_price_from_text(price_text)
+            # price-overall
+            if course["price"] is None:
+               price_overall = first_card.find("span", class_="price-overall")
+               if price_overall:
+                  course["price"] = extract_price_from_text(price_overall.get_text())
+            # price_description
+            if course["price"] is None:
+               price_desc = first_card.find("div", class_="price_description")
+               if price_desc:
+                  course["price"] = extract_price_from_text(price_desc.get_text())
    return course
 
 
@@ -393,19 +381,14 @@ def main_yandex_practic(DB_NAME):
    browser = BrowserManager()
    db_name = DB_NAME
    print("=== Парсер Яндекс Практикум ===\n")
-
    print("Шаг 1: Загружаю каталог курсов...")
-   
    html = browser.get_html(CATALOG_URL)
    cards_data = parse_catalog(html)
-   
-   
    print(f"Найдено курсов в каталоге: {len(cards_data)}\n")
-
+   
    conn = get_connection(db_name)
    cursor = conn.cursor()
 
-   # Убеждаемся, что организация Яндекс Практикум существует (id=7)
    cursor.execute(
       "INSERT INTO organizations (id, name) VALUES (8, 'Яндекс Практикум') "
       "ON DUPLICATE KEY UPDATE name = name"
@@ -416,7 +399,6 @@ def main_yandex_practic(DB_NAME):
    skipped = 0
    errors = 0
    
-
    print("Шаг 2: Обрабатываю каждый курс...\n")
    for i, card_data in enumerate(cards_data, 1):
       url = card_data["url"]
@@ -432,8 +414,6 @@ def main_yandex_practic(DB_NAME):
 
       try:
          course = parse_course_page(url, resp.text, card_data, browser)
-
-         # Готовим dict для INSERT (только нужные поля)
          db_course = {
                "organization_id": course["organization_id"],
                "title": course["title"],
@@ -451,16 +431,15 @@ def main_yandex_practic(DB_NAME):
                "duration_in_hours": course["duration_in_hours"],
                "department_id": course["department_id"],
          }
-
          course_id = save_course(cursor, db_course)
-
+         
          if course_id is None:
                print("дубликат — пропущен")
                skipped += 1
                conn.commit()
                continue
 
-         # Специализации (many-to-many)
+         # Специализации
          for spec_name in course["specialization_names"]:
                spec_id = get_or_create_specialization(cursor, spec_name)
                link_course_specialization(cursor, course_id, spec_id)
@@ -487,42 +466,3 @@ def main_yandex_practic(DB_NAME):
 
 if __name__ == "__main__":
    main_yandex_practic(DB_NAME)
-   
-   
-   # cards_data = [
-   #    {
-   #       "url": "https://practicum.yandex.ru/project-manager/", # Ломается
-   #       "title": "Менеджер проектов",
-   #       "price": None,
-   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
-   #       "specialization_names": ["Менеджмент"]
-   #    },
-   #    {
-   #       "url": "https://practicum.yandex.ru/product-manager-start/", # Ломается
-   #       "title": "ЧМенеджер продукта",
-   #       "price": None,
-   #       "duration": "За 6 месяцев освоите востребованную IT-профессию, в которой не нужно писать код",
-   #       "specialization_names": ["Менеджмент"]
-   #    },
-   #    {
-   #       "url": "https://start.practicum.yandex/start-in-marketing/", # стоит 0
-   #       "title": "Какую профессию выбрать в маркетинге",
-   #       "price": None,  
-   #       "duration": "Зuufudsuufsdufsdufusй не нужно писать код",
-   #       "specialization_names": ["куда податься"]
-   #    },
-   #    {
-   #       "url": "https://practicum.yandex.ru/interface-designer/", # Не ломается
-   #       "title": "Дизайнер интерфейсов",
-   #       "price": None,
-   #       "duration": "oiweorhwkfbsdjfklsdk нужно писать код",
-   #       "specialization_names": ["Дизайн"]
-   #    },
-   #    {
-   #       "url": "https://practicum.yandex.ru/1c-programmer/", # Ломается
-   #       "title": "Разработчик 1С",
-   #       "price": None,
-   #       "duration": "За 6 АХАХАХАХАХАХАХАХАХАХАХАХААХА",
-   #       "specialization_names": ["Программирование"]
-   #    },
-   # ]

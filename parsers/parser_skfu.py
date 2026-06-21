@@ -21,9 +21,9 @@ ORGANIZATION_ID = 10
 DB_NAME = "buff_dpo_db"          
 DELAY = 0.3
 
-
+# -------------------------------------------------------------------
 # ПАРСИНГ ОДНОГО КУРСА
-
+# -------------------------------------------------------------------
 def parse_course(card_div, hidden_div):
    course = {
       "title": None,
@@ -42,7 +42,6 @@ def parse_course(card_div, hidden_div):
       "specializations": []
    }
 
-   #  Данные из карточки (видимая часть) 
    card = card_div.find("div", class_="card")
    if not card:
       return course
@@ -73,7 +72,7 @@ def parse_course(card_div, hidden_div):
          # Всё остальное считаем специализацией
          course["specializations"].append(text)
 
-   # Дата старта (из карточки)
+   # Дата старта
    date_val = card.find("p", class_="card__value card__value_color_primary")
    if date_val:
       course["date"] = clean_text(date_val.get_text())
@@ -82,7 +81,7 @@ def parse_course(card_div, hidden_div):
    if hidden_div:
       detail = hidden_div.find("div", class_="js-content-detail")
       if detail:
-         #  Иконки: часы, стоимость 
+         #  часы, стоимость 
          for icon in detail.find_all("div", class_="icon-item"):
             img = icon.find("img")
             if not img:
@@ -102,7 +101,7 @@ def parse_course(card_div, hidden_div):
             elif "wallet" in src:
                course["price"] = title_text
 
-         # Описание программы 
+         # Описание  
          desc_container = detail.find("div", class_="content__text")
          if desc_container:
             # Удаляем лишние блоки (диплом, списки)
@@ -111,14 +110,12 @@ def parse_course(card_div, hidden_div):
             course["description"] = clean_text(desc_container.get_text())
 
          # Документ об обучении 
-         # Сначала ищем в diplom-card
          diplom_card = detail.find("div", class_="diplom-card")
          if diplom_card:
             doc_paragraph = diplom_card.find("p", class_="diplom-card__text")
             if doc_paragraph:
                raw_doc = clean_text(doc_paragraph.get_text())
                if raw_doc:
-                  # Вычленяем ключевое слово
                   m = re.search(r'(диплом о профессиональной переподготовке|удостоверение о повышении квалификации|свидетельство|сертификат)', raw_doc, re.IGNORECASE)
                   if m:
                      course["document"] = m.group(1).lower()
@@ -143,7 +140,7 @@ def parse_course(card_div, hidden_div):
                                  course["document"] = truncate_string(raw, 100)
                   break
 
-         # "Для кого" 
+         # Для кого 
          for block in detail.find_all("div", class_="content__block"):
             sub = block.find("p", class_="content__subtitle")
             if sub and "Для кого" in sub.get_text():
@@ -152,7 +149,6 @@ def parse_course(card_div, hidden_div):
                   course["admission_requirements"] = clean_text(text_container.get_text())
                break
 
-         #  "Как проходят занятия" 
          for block in detail.find_all("div", class_="content__block"):
             sub = block.find("p", class_="content__subtitle")
             if sub and "Как проходят занятия" in sub.get_text():
@@ -161,11 +157,11 @@ def parse_course(card_div, hidden_div):
                   full = clean_text(text_container.get_text())
                   course["schedule"] = full
                   if full:
-                     # Извлекаем формат обучения
+                     # формат обучения
                      fm = re.search(r"Форма обучения:\s*(.+?)(?:\n|$)", full)
                      if fm:
                         course["format"] = truncate_string(fm.group(1).strip(), 150)
-                     # Если длительность не была заполнена из иконки
+                     # длительность 
                      dur = re.search(r"Срок обучения:\s*(.+?)(?:\n|$)", full)
                      if dur and course["duration"] == "Не указана":
                            course["duration"] = dur.group(1).strip()
@@ -175,7 +171,7 @@ def parse_course(card_div, hidden_div):
                         course["duration_in_hours"] = hrs.group(1)
                break
 
-   # Если документ всё ещё None, ставим заглушку по типу курса (не обязательно)
+   # Если документ всё ещё None
    if not course["document"] and course["course_type"]:
       if "повышение квалификации" in course["course_type"].lower():
          course["document"] = "удостоверение о повышении квалификации"
@@ -184,7 +180,7 @@ def parse_course(card_div, hidden_div):
       else:
          course["document"] = "сертификат"
 
-   # Обрезаем все текстовые поля, чтобы избежать ошибок длины
+   # Обрезаем поля
    course["document"] = truncate_string(course["document"], 100)
    course["format"] = truncate_string(course["format"], 150)
    course["course_type"] = truncate_string(course["course_type"], 100)
@@ -215,7 +211,6 @@ def main_skfu(DB_NAME):
 
    soup = BeautifulSoup(resp.text, "html.parser")
 
-   # Ограничиваемся только секцией "Программы повышения квалификации и проф. переподготовки"
    programs_section = soup.find("section", class_="programs", id="detail")
    if not programs_section:
       programs_section = soup.find("section", class_="programs")
@@ -256,13 +251,10 @@ def main_skfu(DB_NAME):
       print(f"[{idx}/{len(cards)}] {course_data['title']} ({course_data['url']})", end=" ... ")
 
       try:
-         # Подразделение
          dept_id = None
          if course_data["department_name"]:
                dept_id = get_or_create_department(cursor, course_data["department_name"], ORGANIZATION_ID)
-               # (контакты не обновляем, их нет на странице)
 
-         # Готовим запись в dpo_courses
          db_course = {
             "organization_id": ORGANIZATION_ID,
             "title": course_data["title"],
@@ -288,7 +280,6 @@ def main_skfu(DB_NAME):
             conn.commit()
             continue
 
-         # Сохраняем специализации
          for spec_name in course_data["specializations"]:
             spec_id = get_or_create_specialization(cursor, spec_name)
             link_course_specialization(cursor, course_id, spec_id)

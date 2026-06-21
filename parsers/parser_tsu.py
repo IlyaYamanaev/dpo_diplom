@@ -8,9 +8,9 @@ from db_functions import (
 )
 from playwright.async_api import async_playwright
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # Настройки
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 BASE_URL = "https://skills.tsu.ru/catalog/"
 ORGANIZATION_ID = 14
 DB_NAME = "dpo_db"
@@ -24,9 +24,9 @@ DOCUMENT_BY_TYPE = {
    "Программа для школьников": "Сертификат",
 }
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # 1. Обход каталога
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 async def collect_cards(page) -> list[dict]:
    """
    Загружает каталог полностью (жмёт все кнопки 'Загрузить ещё'),
@@ -35,7 +35,7 @@ async def collect_cards(page) -> list[dict]:
    await page.goto(BASE_URL)
    await page.wait_for_selector(".catalog__item, .related__item", timeout=10000)
 
-   # Жмём все кнопки "Загрузить ещё" по всем контейнерам
+   # Жмём все кнопки "Загрузить ещё"
    for container in await page.query_selector_all(".wrap_load_more"):
       while True:
          button = await container.query_selector(".btn:has-text('Загрузить ещё')")
@@ -87,9 +87,9 @@ async def collect_cards(page) -> list[dict]:
    return cards_data
 
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # 2. Парсинг страницы курса
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    """
    Извлекает детальную информацию со страницы курса.
@@ -115,7 +115,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
       "department_id": None,
    }
 
-   # ---- Описание ----
+   # Описание
    about_section = soup.find("section", class_="about--course")
    if about_section:
       about_text_div = about_section.find("div", class_="about__text")
@@ -125,7 +125,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)
          )
 
-   # ---- Длительность в часах ----
+   # Длительность в часах
    program_section = soup.find("section", class_="about--faq")
    if program_section:
       about_list = program_section.find("ul", class_="about__list--course")
@@ -137,7 +137,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                   course["duration_in_hours"] = value_elem.get_text(strip=True)
                   break
 
-   # ---- Цена ----
+   # Цена
    price_section = soup.find("section", class_="price")
    if price_section:
       price_new = price_section.find("p", class_="price__new")
@@ -147,9 +147,9 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    return course
 
 
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 # 3. Основная функция
-# ---------------------------------------------------------------------------
+#-----------------------------------------------------------------------
 async def main_tsu(db_name: str = DB_NAME):
    print("=== Парсер ТГУ ДПО ===\n")
 

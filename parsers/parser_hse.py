@@ -18,7 +18,7 @@ PARAMS_BASE = {"onlyActual": "0"}
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 DB_NAME = "dpo_db"
 ORGANIZATION_ID = 1
-DELAY = 0.3  # пауза между запросами (сек)
+DELAY = 0.3  
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ def parse_course_page(url: str, html: str) -> dict:
    if not card:
       return course
 
-   # --- Специализации (теги) ---
+   # Специализации
    tags_div = card.find("div", class_="dpo-program-card__tags")
    if tags_div:
       for tag in tags_div.find_all("a", class_="dpo-tag"):
@@ -61,7 +61,7 @@ def parse_course_page(url: str, html: str) -> dict:
          if name:
                course["specialization_names"].append(name)
 
-   # --- Крошки: course_type, место/подразделение ---
+   # course_type, подразделение 
    crumbs = card.find("div", class_="dpo-crumbs")
    if crumbs:
       crumb_items = crumbs.find_all("a", class_="dpo-crumb__item")
@@ -78,7 +78,7 @@ def parse_course_page(url: str, html: str) -> dict:
          # нет третьего crumb — подразделение = кампус/город
          course["department_name"] = course["department_address"]
 
-   # --- Название ---
+   # Название 
    title_tag = card.find("h1", class_="dpo-program-card__title")
    if title_tag:
       # Убираем вложенные теги (логотип GSB и прочее)
@@ -86,7 +86,7 @@ def parse_course_page(url: str, html: str) -> dict:
          nested.decompose()
       course["title"] = title_tag.get_text(strip=True) or None
 
-   # --- Описание: берём все блоки desc и объединяем ---
+   # Описание
    desc_blocks = card.find_all(
       lambda t: t.name in ("p", "div") and "dpo-program-card__desc" in (t.get("class") or [])
    )
@@ -94,7 +94,7 @@ def parse_course_page(url: str, html: str) -> dict:
    if descs:
       course["description"] = "\n".join(descs)
 
-   # --- Свойства карточки ---
+   # Свойства
    for prop in card.find_all("li", class_="dpo-program-card__property"):
       name_tag = prop.find("p", class_="dpo-program-card__property-name")
       value_tag = prop.find("p", class_="dpo-program-card__property-value")
@@ -113,7 +113,7 @@ def parse_course_page(url: str, html: str) -> dict:
       elif name == "Старт курса":
          course["date"] = value
 
-   # --- Секция "Формат обучения" ---
+   # Секция "Формат обучения" 
    format_section = soup.find("section", class_="dpo-format")
    if format_section:
       h2 = format_section.find("h2", class_="dpo-section__title")
@@ -135,13 +135,13 @@ def parse_course_page(url: str, html: str) -> dict:
                   course["duration_in_hours"] = val
                   
 
-   # --- Секция контактов (есть не у всех курсов) ---
+   #  контакты 
    contacts_section = soup.find(
       "section",
       class_=lambda c: c and "dpo-contacts" in c.split() and "dpo-section_theme_dark" in c.split()
    )
    if contacts_section:
-      # Есть секция — берём полные контакты, адрес перезаписываем
+      # если есть секция берём полные контакты
       contacts_list = contacts_section.find("ul", class_="dpo-contacts__list")
       if contacts_list:
          for item in contacts_list.find_all("li", class_="dpo-contacts__item"):
@@ -162,17 +162,16 @@ def parse_course_page(url: str, html: str) -> dict:
                      email = a.get_text(strip=True)
                      if email:
                            course["department_emails"].append(email)
-   # Если секции нет — department_address уже заполнен из crumb[1] (город/кампус)
 
    return course
 
 
 # ---------------------------------------------------------------------------
-# Сбор ссылок из каталога (все страницы пагинации)
+# Сбор ссылок из каталога 
 # ---------------------------------------------------------------------------
 def collect_course_urls() -> list:
    urls = []
-   page = 1 ################################
+   page = 1 
    while True:
       params = {**PARAMS_BASE, "page": page}
       print(f"  Каталог, страница {page}...", end=" ", flush=True)
@@ -222,7 +221,6 @@ def main_hse(DB_NAME):
    conn = get_connection(db_name)
    cursor = conn.cursor()
    
-   # Убедимся что организация ВШЭ существует
    cursor.execute(
       "INSERT INTO organizations (id, name) VALUES (1, 'ВШЭ') "
       "ON DUPLICATE KEY UPDATE name = name"
@@ -247,7 +245,6 @@ def main_hse(DB_NAME):
 
       try:
          course = parse_course_page(url, resp.text)
-
          # Подразделение
          if course["department_name"]:
                dept_id = get_or_create_department(cursor, course["department_name"], ORGANIZATION_ID)
@@ -267,7 +264,7 @@ def main_hse(DB_NAME):
                conn.commit()
                continue
 
-         # Специализации (many-to-many)
+         # Специализации 
          for spec_name in course["specialization_names"]:
                spec_id = get_or_create_specialization(cursor, spec_name)
                link_course_specialization(cursor, course_id, spec_id)
@@ -294,18 +291,3 @@ def main_hse(DB_NAME):
 
 if __name__ == "__main__":
    main_hse(DB_NAME)
-   
-   
-# Готово. Вот что делает парсер по шагам: 
-# Шаг 1 — каталог.  Проходит по всем страницам пагинации ( ?page=1,2,3...), собирает ссылки на курсы из карточек  dpob-card__title-inner. Останавливается когда страница приходит пустой. 
-# Шаг 2 — каждый курс.  Заходит на страницу курса и парсит: 
-
-# dpo-program-card__tags → специализации (несколько) →  specializations+ dpo_course_specializations
-# dpo-crumbs→ course_type (1-й crumb), адрес-запасной (2-й crumb), название подразделения (3-й crumb) →  departments
-# Если есть секция  dpo-contacts — берёт полный адрес, телефоны и почты; если нет — адресом остаётся город из 2-го crumb 
-# dpo-program-card__title→ title (с удалением вложенных тегов логотипа GSB) 
-# dpo-program-card__desc→ description
-# dpo-program-card__property→ price, duration, format, document
-# dpo-format__li→ admission_requirements, language, schedule
-
-# Дубликаты курсов определяются по уникальному  url, дубликаты телефонов/почт — перед вставкой проверяются запросом. 

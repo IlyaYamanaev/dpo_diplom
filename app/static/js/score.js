@@ -40,7 +40,7 @@ const SCORE_CONFIG = {
    extras: {
       courseType: 10,    
       document: 7,    
-      installment: 13,    //  рассрочка
+      installment: 13,   //  рассрочка
       pricePerHour: 10,  // цена/час =< средней по рынку
       date: 10,
    },

@@ -20,10 +20,9 @@ HEADERS = {
     "Accept-Language": "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3",
 }
 DB_NAME = "buff_dpo_db"
-ORGANIZATION_ID = 6  # ДВФУ
-DELAY = 0.7  # пауза между запросами (сек)
+ORGANIZATION_ID = 6  
+DELAY = 0.7  
 
-# Список направлений (специализаций) для фильтрации
 SPECIALIZATIONS = [
    "Бухгалтерский учет и налогообложение",
    "Военный учебный центр",
@@ -59,7 +58,6 @@ def collect_course_urls_by_specialization(session, spec_name: str) -> dict:
    while True:
       print(f"    Страница {page}...", end=" ", flush=True)
       
-      # На каждой странице может быть пагинация
       # Проверяем наличие параметра page в URL
       if page == 1:
          page_url = filter_url
@@ -107,7 +105,6 @@ def collect_course_urls_by_specialization(session, spec_name: str) -> dict:
          if not next_btn or "t-store__pagination__item_disabled" in (next_btn.get("class") or []):
                break
       else:
-         # Если нет пагинации, значит только одна страница
          break
       
       page += 1
@@ -156,17 +153,16 @@ def parse_course_page(url: str, html: str) -> dict:
       "duration_in_hours": "Не указана",
    }
    
-   # Ищем все блоки t396__artboard (их может быть несколько на странице)
    artboards = soup.find_all("div", class_="t396__artboard")
    
    for artboard in artboards:
-      # --- Поиск названия курса (title) ---
+      # названия курса
       if not course["title"]:
          title = clean_text(soup.title.get_text(strip=True))
          if title:
             course["title"] = title
             
-      # --- Поиск типа курса (course_type) ---
+      #  типа курса 
       if not course["course_type"]:
          type_elem = artboard.find("div", class_="tn-atom", attrs={"field": "tn_text_1708345124122"})
          if not type_elem:
@@ -174,15 +170,10 @@ def parse_course_page(url: str, html: str) -> dict:
          if type_elem:
                course["course_type"] = clean_text(type_elem.get_text(strip=True))
       
-      # --- Поиск остальных полей в блоке rec___316 (блок с информацией о курсе) ---
-      # Ищем все элементы с полями
       for elem in artboard.find_all("div", class_="tn-atom"):
          field = elem.get("field", "")
          text = clean_text(elem.get_text(strip=True))
-         
-         # if not text:
-         #    continue
-         
+    
          # Формат обучения
          if field in ["tn_text_1708346943593", "tn_text_1708346812788"]:
             if "Форма обучения" in field or "Очн" in text or "Заоч" in text or "Онла" in text:
@@ -207,7 +198,7 @@ def parse_course_page(url: str, html: str) -> dict:
          elif field in ["tn_text_1708346907917", "tn_text_1714268331576"]:
             if text.isdigit() or (text.replace(" ", "").isdigit()): 
                hours_part = text
-               # Ищем рядом единицы измерения
+               # Ищем  единицы измерения
                units_elem = artboard.find("div", class_="tn-atom", attrs={"field": ["tn_text_1710228431103", "tn_text_1714268331598"]})
                if units_elem:
                   units = clean_text(units_elem.get_text(strip=True))
@@ -221,7 +212,7 @@ def parse_course_page(url: str, html: str) -> dict:
                   course["duration"] = text
                
          
-         # Длительность (в месяцах/неделях)
+         # Длительность 
          elif field in [
             "tn_text_1715773843427", "tn_text_1718260354294", "tn_text_1715675098007",
             "tn_text_1715580075697", "tn_text_1715768151382", "tn_text_1715774238928",
@@ -253,7 +244,7 @@ def parse_course_page(url: str, html: str) -> dict:
                else:
                   course["duration"] = duration_value
 
-   # --- Поиск описания ---
+   # Поиск описания 
    desc_elem = soup.find("div", class_="tn-atom", attrs={"field": ["tn_text_1719373250507", 
                   "tn_text_1708392663521", "tn_text_1751952982013"]})
    if not desc_elem:
@@ -261,16 +252,15 @@ def parse_course_page(url: str, html: str) -> dict:
    if desc_elem:
       course["description"] = clean_text(desc_elem.get_text(strip=True))[:1000]
    
-   # --- Обработка title (если из нескольких частей) ---
+   # Обработка title 
    if course["title"]:
-      # Может быть title из двух h1 (как в кинопроизводстве)
       all_h1 = soup.find_all("h1", class_="tn-atom")
       if len(all_h1) >= 2:
          full_title = " ".join([clean_text(h.get_text(strip=True)) for h in all_h1])
          if len(full_title) > len(course["title"]):
                course["title"] = full_title
    
-   # --- Определение документа по типу курса ---
+   # документ 
    if course["course_type"]:
       if "профессиональной переподготовки" in course["course_type"].lower():
          course["document"] = "Диплом о профессиональной переподготовке"
@@ -280,7 +270,7 @@ def parse_course_page(url: str, html: str) -> dict:
          course["document"] = "Сертификат"
       
    
-   # --- Очистка всех текстовых полей ---
+   # Очистка текстовых полей 
    for key in ["title", "price", "format", "course_type", "duration", 
                "description", "date", "duration_in_hours"]:
       if course[key]:
@@ -299,7 +289,6 @@ def main_dvfu(DB_NAME):
    conn = get_connection(db_name)
    cursor = conn.cursor()
    
-   # Убеждаемся, что организация существует
    cursor.execute(
       "INSERT INTO organizations (id, name) VALUES (6, 'ДВФУ') "
       "ON DUPLICATE KEY UPDATE name = name"
@@ -312,46 +301,6 @@ def main_dvfu(DB_NAME):
    
    
    all_course_urls = collect_all_course_urls(session)
-   
-   # all_course_urls = {
-   #    "https://dpo.dvfu.ru/filmmaking-basics": ["Креативные индустрии"],
-   #    "https://dpo.dvfu.ru/state-and-municipal-administration": ["Экономика и менеджмент"],
-   #    "https://dpo.dvfu.ru/driver-training": ["Инженерия"],
-#       "https://dpo.dvfu.ru/basi-course-in-nanocad": ["не важно"],
-#       "https://dpo.dvfu.ru/logopedia": ["не важно"],
-#       "https://dpo.dvfu.ru/fitness-and-bodybuilding-instructor": ["важно"],
-#       "https://dpo.dvfu.ru/training-andcertification-of-accountants": ["важно"],
-#       "https://dpo.dvfu.ru/accounting-analysis-and-audit": ["важно"],
-#       "https://dpo.dvfu.ru/professional-training-program-for-security-guards-4": ["важно"],
-#       "https://dpo.dvfu.ru/professional-training-program-for-security-guards": ["важно"],
-#       "https://dpo.dvfu.ru/educational-institution-security-officer": ["важно"],
-#       "https://dpo.dvfu.ru/safe-handling-of-weapons": ["важно"],
-#       "https://dpo.dvfu.ru/private-detective-2": ["важно"],
-#       "https://dpo.dvfu.ru/advanced-training-of-security-guards-4": ["важно"],
-#       "https://dpo.dvfu.ru/advanced-training-of-security-guards-6": ["важно"],
-#       "https://dpo.dvfu.ru/professional-training-program-for-security-guards-from-4th-to-6th-grade": ["важно"],
-#       "https://dpo.dvfu.ru/educational-institution-security-officer-5": ["важно"],
-#       "https://dpo.dvfu.ru/professional-training-program-for-security-guards-5": ["важно"],
-#       "https://dpo.dvfu.ru/contract-system-in-procurement-pp": ["важно"],
-#       "https://dpo.dvfu.ru/contract-system-in-procurement": ["важно"],
-#       "https://dpo.dvfu.ru/nutritionology": ["важно"],
-#       "https://dpo.dvfu.ru/driver-training": ["важно"],
-#       "https://dpo.dvfu.ru/obpla": ["важно"],
-#       "https://dpo.dvfu.ru/basi-course-in-nanocad": ["важно"],
-#       "https://dpo.dvfu.ru/sql": ["важно"],
-#       "https://dpo.dvfu.ru/obespechenye-zaschiti-gostainy-5": ["важно"],
-#       "https://dpo.dvfu.ru/zaschyta-gostaini": ["важно"],
-#       "https://dpo.dvfu.ru/obespechenye-zaschiti-gostainy": ["важно"],
-#       "https://dpo.dvfu.ru/organizatsiya-rabot-po-zaschyte-gostaini": ["важно"],
-#       "https://dpo.dvfu.ru/filmmaking-basics": ["важно"],
-#       "https://dpo.dvfu.ru/preparation-for-creative-exams-short-term": ["важно"],
-#       "https://dpo.dvfu.ru/first-aid-basics-for-corporate-clients": ["важно"],
-#       "https://dpo.dvfu.ru/logopedia": ["важно"],
-#       "https://dpo.dvfu.ru/pre-schoolteacher": ["важно"],
-#       "https://dpo.dvfu.ru/methods-of-teaching": ["важно"],
-#       "https://dpo.dvfu.ru/psy_education": ["важно"],
-#       "https://dpo.dvfu.ru/russian-teacher": ["важно"],    
-# }
    
    print(f"\nВсего уникальных курсов найдено: {len(all_course_urls)}")
    
@@ -375,8 +324,6 @@ def main_dvfu(DB_NAME):
       
       try:
          course = parse_course_page(url, resp.text)
-         
-         # Сохраняем курс
          course_id = save_course(cursor, course)
          
          if course_id is None:
@@ -387,7 +334,6 @@ def main_dvfu(DB_NAME):
 
                continue
          
-         # Привязываем специализации к курсу
          for spec_name in specializations:
                spec_id = get_or_create_specialization(cursor, spec_name)
                if spec_id:

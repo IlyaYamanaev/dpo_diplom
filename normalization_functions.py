@@ -1,7 +1,4 @@
 import re
-import dateparser
-from datetime import datetime, date
-
 
 
 def normalize_column(conn, select_column, update_column, transform_func, table="dpo_courses",):

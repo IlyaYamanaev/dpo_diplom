@@ -38,7 +38,6 @@ def get_categories(soup):
       swiper_wrapper = categories_slider.find("div", class_="swiper-wrapper")
       if swiper_wrapper:
          for slide in swiper_wrapper.find_all("div", class_="swiper-slide"):
-               # Ищем ссылку на категорию внутри categories__item
                cat_link = slide.find("a", href=True)
                if cat_link and cat_link.get("href"):
                   href = cat_link["href"]
@@ -47,7 +46,6 @@ def get_categories(soup):
                   if href not in categories_urls and "/napravleniya/" in href:
                      categories_urls.append(href)
    
-   # Если не нашли через слайдер, ищем через меню "Направления"
    if not categories_urls:
       nav_dropdown = soup.find("div", class_="header__nav-dropdown")
       if nav_dropdown:
@@ -74,7 +72,7 @@ def get_course_urls_from_category(category_url: str) -> list:
       if page == 1:
          url = category_url
       else:
-         # Формат пагинации: category_url?page=N или /page/N/
+         # category_url?page=N или /page/N/
          if "?" in category_url:
                url = category_url + f"&page={page}"
          else:
@@ -97,17 +95,13 @@ def get_course_urls_from_category(category_url: str) -> list:
       if not products_list:
          print("нет списка курсов")
          break
-      
       # Ищем все карточки курсов
       items = products_list.find_all("li")
       if not items:
-         # Может быть другая структура
          items = products_list.find_all("div", class_="products__item")
-      
       if not items:
          print("нет карточек курсов")
          break
-      
       page_urls = []
       for item in items:
          title_link = item.find("a", class_="products__item-title")
@@ -119,7 +113,6 @@ def get_course_urls_from_category(category_url: str) -> list:
                   href = "https://dpo.kantiana.ru" + href
                if href not in page_urls:
                   page_urls.append(href)
-      
       print(f"    Hайдено {len(page_urls)} курсов")
       course_urls.extend(page_urls)
       
@@ -210,16 +203,12 @@ def parse_course_page(url: str, html: str, specialization_name: str = None) -> d
    if specialization_name:
       course["specialization_names"].append(specialization_name)
    
-   # -------------------------------------------------------------------
    # Заголовок курса
-   # -------------------------------------------------------------------
    title_tag = soup.find("h1", class_="breadcrumbs__title")
    if title_tag:
       course["title"] = clean_text(title_tag.get_text(strip=True))
    
-   # -------------------------------------------------------------------
-   # Специализации из хлебных крошек (breadcrumbs)
-   # -------------------------------------------------------------------
+   # Специализации
    breadcrumbs = soup.find("ul", class_="breadcrumbs__menu")
    if breadcrumbs:
       for li in breadcrumbs.find_all("li"):
@@ -230,47 +219,32 @@ def parse_course_page(url: str, html: str, specialization_name: str = None) -> d
                if spec_name and spec_name != "Главная" and spec_name not in course["specialization_names"]:
                   course["specialization_names"].append(spec_name)
    
-   # -------------------------------------------------------------------
    # Цена
-   # -------------------------------------------------------------------
    price_tag = soup.find("p", class_="sku__price")
    if price_tag:
       price_text = clean_text(price_tag.get_text(strip=True))
       if price_text:
          course["price"] = price_text
    
-   # -------------------------------------------------------------------
-   # Характеристики (таблица sku__details-table)
-   # -------------------------------------------------------------------
+   # Характеристики (sku__details-table)
    details_table = soup.find("table", class_="sku__details-table")
    if details_table:
-      # Проходим по всем строкам таблицы
       for row in details_table.find_all("tr"):
-         # В каждой строке может быть несколько ячеек с параметрами
          cells = row.find_all("td")
          for cell in cells:
-               # Ищем small внутри ячейки - это название параметра
                small = cell.find("small")
                if small:
                   param_name = clean_text(small.get_text(strip=True))
-                  # Удаляем small, чтобы получить значение
                   small.decompose()
-                  param_value = clean_text(cell.get_text(strip=True))
-                  
-                  # Определяем тип параметра и заполняем соответствующие поля
+                  param_value = clean_text(cell.get_text(strip=True))                  
                   if "Продолжительность" in param_name:
                      course["duration_in_hours"] = param_value
                   elif "Срок обучения" in param_name:
                      course["duration"] = param_value
                   elif "Формат обучения" in param_name:
                      course["format"] = param_value
-                  # Можно добавить и другие параметры, если нужно
-                  # elif "Авторы" in param_name:
-                  #     pass  # Авторы не сохраняются в текущей схеме БД
    
-   # -------------------------------------------------------------------
    # Описание (product-description-text)
-   # -------------------------------------------------------------------
    desc_block = soup.find("div", class_="product-description-text")
    if desc_block:
       editor = desc_block.find("div", class_="editor")
@@ -279,14 +253,12 @@ def parse_course_page(url: str, html: str, specialization_name: str = None) -> d
          paragraphs = []
          for p in editor.find_all("p"):
                p_text = clean_text(p.get_text(strip=True))
-               if p_text and len(p_text) > 10:  # игнорируем слишком короткие
+               if p_text and len(p_text) > 10: 
                   paragraphs.append(p_text)
          if paragraphs:
-               course["description"] = "\n\n".join(paragraphs[:5])  # ограничиваем длину
+               course["description"] = "\n\n".join(paragraphs[:5])  
    
-   # -------------------------------------------------------------------
    # Определение document и course_type по тексту на странице
-   # -------------------------------------------------------------------
    page_text = soup.get_text().lower()
    
    if "диплом о профессиональной переподготовке" in page_text:
@@ -295,8 +267,6 @@ def parse_course_page(url: str, html: str, specialization_name: str = None) -> d
    elif "удостоверение о повышении квалификации" in page_text:
       course["document"] = "Удостоверение о повышении квалификации"
       course["course_type"] = "Повышение квалификации"
-   
-   # Если не нашли, но в тексте есть "повышение квалификации"
    if course["course_type"] == "Не указан":
       if "повышение квалификации" in page_text:
          course["course_type"] = "Повышение квалификации"
@@ -325,7 +295,7 @@ def main_bfu(DB_NAME):
    print("=== Парсер БФУ ДПO ===\n")
    print(f"Organization ID: {ORGANIZATION_ID} (БФУ)\n")
    
-   # Шаг 1: Собираем все URL курсов
+   # Собираем все URL курсов
    course_urls = collect_all_course_urls()
    
    if not course_urls:

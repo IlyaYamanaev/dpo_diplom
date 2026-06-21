@@ -10,7 +10,7 @@
    --gray-700: #374151;
 }
 
-/* === LAYOUT === */
+/*  LAYOUT  */
 .creator-layout {
    display: grid;
    grid-template-columns: 1fr 420px;
@@ -30,7 +30,7 @@
    top: 90px;
 }
 
-/* === ЛЕВАЯ КОЛОНКА: шапка, фильтры, карточки === */
+/*  ЛЕВАЯ КОЛОНКА: шапка, фильтры, карточки  */
 .creator-header {
    display: flex;
    align-items: center;

@@ -39,7 +39,7 @@ def truncate_string(s, max_len):
 def get_html_with_playwright(url: str) -> str:
    """Возвращает HTML страницы с ДЕЙСТВИТЕЛЬНОЙ ценой курса"""
    with sync_playwright() as p:
-      browser = p.chromium.launch(headless=False)  # headless=True для скрытого режима
+      browser = p.chromium.launch(headless=False)  # True для скрытого режима
       page = browser.new_page()
       page.goto(url)
       

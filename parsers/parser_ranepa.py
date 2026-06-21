@@ -55,8 +55,7 @@ def parse_card(li_tag) -> dict:
       "date": None,
       "price": None,
    }
-
-   # Тип курса (badge)
+   # Тип курса
    badge = li_tag.find(
       "p",
       class_=lambda c: c and "pp-dpo-program__badge" in c and "badge--city" not in c,
@@ -64,7 +63,6 @@ def parse_card(li_tag) -> dict:
    if badge:
       badge_text = clean_text(badge.get_text())
       data["course_type"] = BADGE_TO_COURSE_TYPE.get(badge_text, badge_text)
-
    # Специализации
    tags_p = li_tag.find("p", class_="pp-dpo-program__tags-list")
    if tags_p:
@@ -72,7 +70,6 @@ def parse_card(li_tag) -> dict:
       data["specialization_names"] = [
          s.strip() for s in tags_text.split("•") if s.strip()
       ]
-
    # Название
    title_tag = li_tag.find("h2", class_="pp-dpo-program__title")
    if title_tag:
@@ -81,8 +78,7 @@ def parse_card(li_tag) -> dict:
       title_tag = li_tag.find("h3", class_="pp-dpo-program__title")
       if title_tag:
          data["title"] = clean_text(title_tag.get_text())
-
-   # info-list: часы, формат, дата, цена
+   # часы, формат, дата, цена
    for info in li_tag.find_all("li", class_="pp-dpo-program__info"):
       p_tag = info.find("p", class_="pp-dpo-program__info-text")
       text = clean_text(p_tag.get_text()) if p_tag else ""
@@ -149,7 +145,6 @@ def collect_cards() -> list:
 
       print(f"найдено: {len(page_cards)}")
       all_cards.extend(page_cards)
-
       # Если карточек меньше ожидаемого - скорее всего последняя страница
       if len(cards_tags) < 10:
          print("  Мало карточек - последняя страница")
@@ -215,19 +210,19 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
    # Описание
    desc_div = main_container.find("div", class_="pp-dpo-main__description")
    if desc_div:
-      # Специализации из details-list (добавляем к тем что из карточки)
+      # Специализации 
       details_ul = desc_div.find("ul", class_="pp-dpo-main__details-list")
       if details_ul:
          for li in details_ul.find_all("li"):
                det = clean_text(li.get_text())
                if det and det not in course["specialization_names"]:
                   course["specialization_names"].append(det)
-         details_ul.decompose()  # убираем из дерева, чтобы не попало в description
+         details_ul.decompose()  
 
-      # Убираем h1 - title уже есть из карточки
+      # Убираем h1
       h1 = desc_div.find("h1")
       if h1:
-         # Если title не был получен из карточки - берём отсюда
+         # Если title не был получен из карточки 
          if not course["title"]:
                course["title"] = clean_text(h1.get_text())
          h1.decompose()
@@ -254,9 +249,7 @@ def parse_course_page(url: str, html: str, card_data: dict) -> dict:
                   email = clean_text(a.get_text())
                   if email:
                      course["department_emails"].append(email)
-
    return course
-
 
 #------------------------------------------------------------------------
 # Точка входа

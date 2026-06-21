@@ -149,19 +149,18 @@ def parse_course_page(preview: dict, html: str) -> dict:
       content = node.find("div", class_="content")
 
    if content:
-      # Выдаваемый документ — ищем label-ячейку и следующую за ней
+      # документ 
       rows = content.find_all("div", class_="row")
       for row in rows:
          label_divs = row.find_all("div", class_=lambda c: c and "text-secondary" in c)
          for label_div in label_divs:
             label_text = label_div.get_text(strip=True)
             if "Выдаваемый документ" in label_text:
-               # Значение — следующий sibling div
+               # следующий div
                value_div = label_div.find_next_sibling("div")
                if value_div:
                   doc_text = clean_text(value_div.get_text(strip=True))
                   course["document"] = doc_text
-
                   # Определяем course_type по документу
                   if "Удостоверение о повышении квалификации" in doc_text:
                      course["course_type"] = "Повышение квалификации"
@@ -171,16 +170,14 @@ def parse_course_page(preview: dict, html: str) -> dict:
                      course["course_type"] = "Курс"
                   elif "Свидетельство о профессии рабочего, должности служащего" in doc_text:
                      course["course_type"] = "Профессиональная переподготовка"
-      # Описание — весь текст из блока mt-5 (очищенный и обрезанный до 500 символов)
+      # Описание 
       mt5_block = content.find("div", class_="mt-5")
       if mt5_block:
-         # Берём весь текст, разделитель пробел, убираем лишние пробелы и переводы строк
          desc_text = clean_text(mt5_block.get_text(separator=" ", strip=True))
          if desc_text:
-            # Обрезаем до 500 символов (можно изменить при необходимости)
             course["description"] = desc_text[:500]
-
-   # Финальная очистка текстовых полей
+            
+   # очистка текстовых полей
    for key in ["title", "price", "format", "date", "duration_in_hours",
             "document", "course_type", "description"]:
       if course.get(key):
@@ -196,7 +193,6 @@ def main_sfu(db_name=DB_NAME):
    print("=== Парсер СФУ ДПО ===\n")
    print(f"Organization ID: {ORGANIZATION_ID} (СФУ)\n")
 
-   # Шаг 1: Обходим каталог — собираем карточки
    print("Шаг 1: Сбор карточек из каталога...\n")
    courses_preview = collect_catalog_courses()
 
@@ -213,7 +209,6 @@ def main_sfu(db_name=DB_NAME):
    )
    conn.commit()
 
-   # Шаг 3: Парсим страницы курсов и сохраняем в БД
    print(f"\nШаг 2: Обработка {len(courses_preview)} курсов...\n")
 
    saved = 0
@@ -231,23 +226,20 @@ def main_sfu(db_name=DB_NAME):
          print(f"ошибка загрузки: {e}")
          errors += 1
          continue
-
+      
       try:
          course = parse_course_page(preview, resp.text)
-
          if not course["title"]:
                print("нет заголовка — пропущен")
                skipped += 1
                continue
-
          course_id = save_course(cursor, course)
-
+         
          if course_id is None:
                print("дубликат — пропущен")
                skipped += 1
                conn.commit()
                continue
-
          conn.commit()
          print(f"OK (id={course_id})")
          saved += 1

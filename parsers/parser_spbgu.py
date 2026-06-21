@@ -88,7 +88,7 @@ def parse_course_page(html: str, url: str) -> dict:
    title_tag = soup.find("h1", class_=re.compile(r"program-headline__title"))
    title = clean_text(title_tag.get_text()) if title_tag else None
 
-   # Описание (удаляем ссылку "Записаться")
+   # Описание
    editor_div = soup.find("div", class_="editor editor--sans")
    description = extract_text_except_link(editor_div) if editor_div else None
 
@@ -101,7 +101,7 @@ def parse_course_page(html: str, url: str) -> dict:
          if not span:
                continue
          key = clean_text(span.get_text())
-         # Берём значение как весь текст без текста span
+         # Берём значение как весь текст
          full_text = clean_text(p.get_text())
          span_text = clean_text(span.get_text())
          if full_text.startswith(span_text):
@@ -111,7 +111,7 @@ def parse_course_page(html: str, url: str) -> dict:
          if key and value:
                details[key] = value
 
-   # Локальные функции для обработки цены и часов
+   # функции для цены и часов
    def parse_price(price_str):
       if not price_str:
          return None
@@ -200,7 +200,6 @@ def main_spbgu(DB_NAME):
    conn = get_connection(db_name)
    cursor = conn.cursor()
 
-   # Убедимся, что организация существует
    cursor.execute("SELECT id FROM organizations WHERE id = %s", (ORGANIZATION_ID,))
    if not cursor.fetchone():
       cursor.execute("INSERT INTO organizations (id, name) VALUES (%s, %s)", (ORGANIZATION_ID, ORGANIZATION_NAME))
